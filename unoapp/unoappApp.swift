@@ -8,6 +8,7 @@
 //  capture of a full football pitch (180° FOV).
 //
 
+import AVFoundation
 import SwiftUI
 
 @main

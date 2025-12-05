@@ -141,7 +141,7 @@ final class CameraManager: NSObject, ObservableObject {
                 range.maxFrameRate >= targetFrameRate
             }
 
-            if let range = frameRateRange {
+            if frameRateRange != nil {
                 let duration = CMTime(value: 1, timescale: CMTimeScale(targetFrameRate))
                 device.activeVideoMinFrameDuration = duration
                 device.activeVideoMaxFrameDuration = duration
