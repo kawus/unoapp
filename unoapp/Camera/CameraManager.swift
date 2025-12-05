@@ -9,6 +9,7 @@
 //
 
 import AVFoundation
+import Combine
 import UIKit
 
 /// Manages the camera capture session and video recording
