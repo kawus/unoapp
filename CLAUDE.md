@@ -29,7 +29,6 @@ The core camera functionality is complete:
 ```
 unoapp/
 ├── unoappApp.swift              # App entry point + permission routing
-├── Info.plist                   # Camera & photo library permissions
 ├── Camera/
 │   ├── CameraManager.swift      # AVFoundation camera control
 │   └── CameraPreviewView.swift  # UIViewRepresentable for preview
@@ -39,6 +38,8 @@ unoapp/
     ├── ViewfinderView.swift     # Main camera UI
     └── PermissionView.swift     # Permission denied screen
 ```
+
+Note: Camera/photo permissions are in project build settings (INFOPLIST_KEY_*), not a separate Info.plist.
 
 ---
 
