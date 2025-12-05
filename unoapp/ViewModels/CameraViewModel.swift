@@ -52,7 +52,8 @@ final class CameraViewModel: ObservableObject {
 
         // Setup recording callback
         cameraManager.onRecordingFinished = { [weak self] url in
-            Task { @MainActor in
+            guard let self else { return }
+            Task { @MainActor [weak self] in
                 self?.handleRecordingFinished(url: url)
             }
         }
@@ -82,13 +83,12 @@ final class CameraViewModel: ObservableObject {
 
     /// Request camera permission from the user
     func requestPermission() {
-        AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-            Task { @MainActor in
-                self?.permissionStatus = granted ? .authorized : .denied
+        Task {
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            permissionStatus = granted ? .authorized : .denied
 
-                if granted {
-                    self?.setupCamera()
-                }
+            if granted {
+                setupCamera()
             }
         }
     }
