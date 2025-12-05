@@ -256,6 +256,8 @@
 				DEVELOPMENT_TEAM = Q97S6A3Y6A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Unoapp needs camera access to record football pitch footage with your ultrawide lens and Moment fisheye attachment.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Unoapp needs photo library access to save your recordings to the Camera Roll.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +290,8 @@
 				DEVELOPMENT_TEAM = Q97S6A3Y6A;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Unoapp needs camera access to record football pitch footage with your ultrawide lens and Moment fisheye attachment.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Unoapp needs photo library access to save your recordings to the Camera Roll.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
