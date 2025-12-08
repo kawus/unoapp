@@ -9,29 +9,32 @@
 
 import SwiftUI
 
-/// Adaptive toolbar that positions record button centered and thumbnail button offset
+/// Adaptive toolbar that positions record button centered with thumbnail and grid toggle on sides
 struct AdaptiveToolbar: View {
 
     let isLandscape: Bool
     let thumbnail: UIImage?
     let isRecording: Bool
+    let showMeteringGrid: Bool
     let onThumbnailTap: () -> Void
     let onRecordTap: () -> Void
+    let onGridToggle: () -> Void
 
     var body: some View {
         if isLandscape {
             // Landscape: controls on right edge
-            // Record button centered vertically, thumbnail at top
+            // Record button centered vertically, thumbnail at top, grid at bottom
             HStack {
                 Spacer()
                 ZStack {
                     // Record button - centered
                     RecordButton(isRecording: isRecording, action: onRecordTap)
 
-                    // Thumbnail button - top aligned
+                    // Thumbnail (top) and Grid toggle (bottom)
                     VStack {
                         ThumbnailButton(thumbnail: thumbnail, action: onThumbnailTap)
                         Spacer()
+                        GridToggleButton(isActive: showMeteringGrid, action: onGridToggle)
                     }
                 }
                 .padding(.trailing, 30)
@@ -39,23 +42,44 @@ struct AdaptiveToolbar: View {
             }
         } else {
             // Portrait: controls at bottom
-            // Record button centered horizontally, thumbnail on left
+            // Record button centered horizontally, thumbnail on left, grid on right
             VStack {
                 Spacer()
                 ZStack {
                     // Record button - centered
                     RecordButton(isRecording: isRecording, action: onRecordTap)
 
-                    // Thumbnail button - left aligned
+                    // Thumbnail (left) and Grid toggle (right)
                     HStack {
                         ThumbnailButton(thumbnail: thumbnail, action: onThumbnailTap)
                         Spacer()
+                        GridToggleButton(isActive: showMeteringGrid, action: onGridToggle)
                     }
                 }
                 .padding(.horizontal, 30)
                 .padding(.bottom, 40)
             }
         }
+    }
+}
+
+// MARK: - Grid Toggle Button
+
+/// Toggle button for metering grid overlay (44x44pt to match ThumbnailButton)
+struct GridToggleButton: View {
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "square.grid.3x3")
+                .font(.system(size: 20))
+                .frame(width: 44, height: 44)
+                .background(isActive ? Color.white.opacity(0.25) : Color.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .foregroundStyle(isActive ? .white : .white.opacity(0.7))
+        .buttonStyle(.plain)
     }
 }
 
@@ -66,8 +90,10 @@ struct AdaptiveToolbar: View {
             isLandscape: false,
             thumbnail: nil,
             isRecording: false,
+            showMeteringGrid: false,
             onThumbnailTap: {},
-            onRecordTap: {}
+            onRecordTap: {},
+            onGridToggle: {}
         )
     }
 }
@@ -79,8 +105,10 @@ struct AdaptiveToolbar: View {
             isLandscape: true,
             thumbnail: nil,
             isRecording: false,
+            showMeteringGrid: true,
             onThumbnailTap: {},
-            onRecordTap: {}
+            onRecordTap: {},
+            onGridToggle: {}
         )
     }
 }

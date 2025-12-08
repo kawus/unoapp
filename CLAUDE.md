@@ -41,7 +41,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Metering Zone Control (Iteration 3)**
 - 3x3 grid overlay for selecting exposure metering zone
-- Toggle button in preset bar (grid icon) to show/hide overlay
+- Grid toggle button in bottom toolbar (next to record button, opposite thumbnail)
 - Tap a zone to set where camera calculates auto-exposure
 - Each preset has a default zone (floodlight defaults to bottom-center to avoid bright lights)
 - Zone selection persists when switching presets
@@ -67,8 +67,8 @@ unoapp/
 │   └── CameraViewModel.swift    # State management
 └── Views/
     ├── ViewfinderView.swift     # Main camera UI
-    ├── AdaptiveToolbar.swift    # Orientation-aware control positioning
-    ├── PresetBar.swift          # Lighting preset buttons + grid toggle
+    ├── AdaptiveToolbar.swift    # Orientation-aware toolbar (record, thumbnail, grid toggle)
+    ├── PresetBar.swift          # Lighting preset buttons
     ├── ManualControlsView.swift # Stepper controls for manual mode
     ├── MeteringGridOverlay.swift # 3x3 tappable zone selection grid
     ├── RecordingsListView.swift # Recordings list with thumbnails
@@ -188,7 +188,7 @@ Videos are saved to the app's Documents directory:
 - [ ] Exposure changes visible in preview
 
 **Metering Grid**
-- [ ] Grid toggle button visible in preset bar (grid icon)
+- [ ] Grid toggle button visible in bottom toolbar (right side in portrait, bottom in landscape)
 - [ ] Tapping grid button shows/hides 3x3 overlay
 - [ ] Tapping a zone selects it (visual feedback)
 - [ ] Selected zone affects auto-exposure calculations

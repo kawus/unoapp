@@ -63,12 +63,8 @@ struct ViewfinderView: View {
                     // Preset bar at top (always visible)
                     PresetBar(
                         selectedPreset: $viewModel.selectedPreset,
-                        showMeteringGrid: viewModel.showMeteringGrid,
                         onPresetSelected: { preset in
                             viewModel.selectPreset(preset)
-                        },
-                        onGridToggle: {
-                            viewModel.toggleMeteringGrid()
                         }
                     )
 
@@ -99,15 +95,17 @@ struct ViewfinderView: View {
                     .transition(.opacity.combined(with: .scale))
                 }
 
-                // Adaptive toolbar with thumbnail + record button
-                // Portrait: record centered, thumbnail left
-                // Landscape: record centered, thumbnail top
+                // Adaptive toolbar with thumbnail + record button + grid toggle
+                // Portrait: thumbnail left, record centered, grid right
+                // Landscape: thumbnail top, record centered, grid bottom
                 AdaptiveToolbar(
                     isLandscape: isLandscape,
                     thumbnail: lastThumbnail,
                     isRecording: viewModel.isRecording,
+                    showMeteringGrid: viewModel.showMeteringGrid,
                     onThumbnailTap: { showRecordingsList = true },
-                    onRecordTap: { viewModel.toggleRecording() }
+                    onRecordTap: { viewModel.toggleRecording() },
+                    onGridToggle: { viewModel.toggleMeteringGrid() }
                 )
 
                 // Recording saved confirmation
