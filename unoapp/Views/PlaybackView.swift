@@ -9,6 +9,24 @@
 import SwiftUI
 import AVKit
 
+// MARK: - AVPlayerViewController Wrapper
+
+/// Wraps AVPlayerViewController for SwiftUI - respects video rotation metadata
+struct VideoPlayerView: UIViewControllerRepresentable {
+    let player: AVPlayer
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.player = player
+        controller.showsPlaybackControls = true
+        return controller
+    }
+
+    func updateUIViewController(_ controller: AVPlayerViewController, context: Context) {
+        // Player already set
+    }
+}
+
 /// Full-screen video playback view
 struct PlaybackView: View {
 
@@ -33,7 +51,7 @@ struct PlaybackView: View {
             // Video player
             ZStack {
                 if let player = player {
-                    VideoPlayer(player: player)
+                    VideoPlayerView(player: player)
                 } else {
                     ProgressView()
                 }

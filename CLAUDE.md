@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 3.5 Complete (Recording Metadata)
+**Status**: Iteration 3.6 Complete (Video Orientation Fix)
 
 ---
 
@@ -54,6 +54,13 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Playback view shows full settings in header area
 - Legacy recordings without metadata still work
 - JSON is human-readable for field testing debugging
+
+**Video Orientation Fix (Iteration 3.6)**
+- Recording embeds correct rotation metadata based on device orientation
+- Videos play back correctly regardless of recording orientation
+- Thumbnails display with correct orientation
+- Uses AVCaptureConnection.videoRotationAngle at recording start
+- Playback uses AVPlayerViewController for proper transform handling
 
 ### File Structure
 
@@ -191,6 +198,10 @@ Example metadata file:
 - [ ] Camera preview rotates correctly (not upside down)
 - [ ] Record button stays centered in both orientations
 - [ ] Thumbnail button stays accessible in both orientations
+- [ ] Portrait recordings play back correctly
+- [ ] Landscape-left recordings play back correctly
+- [ ] Landscape-right recordings play back correctly
+- [ ] Thumbnails show correct orientation for all recordings
 
 **Recordings List**
 - [ ] Thumbnail button shows most recent recording

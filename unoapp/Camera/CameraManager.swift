@@ -240,6 +240,29 @@ final class CameraManager: NSObject, ObservableObject {
     func startRecording(preset: CameraPreset, settings: CameraSettings) {
         guard let videoOutput = videoOutput, !isRecording else { return }
 
+        // Set video rotation based on device orientation
+        // This embeds rotation metadata in the video file for correct playback
+        if let connection = videoOutput.connection(with: .video) {
+            let orientation = UIDevice.current.orientation
+            let rotationAngle: CGFloat
+            switch orientation {
+            case .portrait:
+                rotationAngle = 90
+            case .portraitUpsideDown:
+                rotationAngle = 270
+            case .landscapeLeft:
+                rotationAngle = 0
+            case .landscapeRight:
+                rotationAngle = 180
+            default:
+                rotationAngle = 90  // Default to portrait
+            }
+
+            if connection.isVideoRotationAngleSupported(rotationAngle) {
+                connection.videoRotationAngle = rotationAngle
+            }
+        }
+
         // Store metadata to save when recording completes
         currentRecordingMetadata = (preset, settings)
 
