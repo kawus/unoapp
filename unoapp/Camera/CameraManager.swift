@@ -154,6 +154,29 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Camera Settings
+
+    /// Apply camera settings (exposure bias, ISO, white balance)
+    /// Note: Currently implements exposure bias only - the simplest and most effective control.
+    /// Full ISO/WB control can be added later if exposure bias alone isn't sufficient.
+    func applySettings(_ settings: CameraSettings) {
+        guard let device = videoDevice else { return }
+
+        do {
+            try device.lockForConfiguration()
+
+            // Apply exposure bias (works with auto-exposure)
+            // This is the main control - similar to native camera exposure dial
+            let clampedBias = max(device.minExposureTargetBias,
+                                  min(settings.exposureBias, device.maxExposureTargetBias))
+            device.setExposureTargetBias(clampedBias, completionHandler: nil)
+
+            device.unlockForConfiguration()
+        } catch {
+            print("Could not apply camera settings: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Session Control
 
     /// Start the capture session on a background thread

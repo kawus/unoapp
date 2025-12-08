@@ -36,14 +36,44 @@ struct ViewfinderView: View {
         NavigationStack {
             ZStack {
                 // Full-screen camera preview
+                // Tap to dismiss manual controls panel
                 CameraPreviewView(session: viewModel.cameraManager.captureSession)
                     .ignoresSafeArea()
+                    .onTapGesture {
+                        viewModel.dismissManualControls()
+                    }
 
-                // Recording indicator - stays at top in both orientations
+                // Main UI overlay
+                VStack(spacing: 0) {
+                    // Preset bar at top (always visible)
+                    PresetBar(
+                        selectedPreset: $viewModel.selectedPreset,
+                        onPresetSelected: { preset in
+                            viewModel.selectPreset(preset)
+                        }
+                    )
+
+                    // Manual controls (shown when manual preset selected AND controls not dismissed)
+                    if viewModel.selectedPreset == .manual && viewModel.showManualControls {
+                        ManualControlsView(
+                            settings: $viewModel.manualSettings,
+                            onSettingsChanged: { settings in
+                                viewModel.applyManualSettings(settings)
+                            }
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    Spacer()
+                }
+                .animation(.easeInOut(duration: 0.2), value: viewModel.selectedPreset)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.showManualControls)
+
+                // Recording indicator - below preset bar
                 if viewModel.isRecording {
                     VStack {
                         RecordingIndicator(duration: viewModel.formattedDuration)
-                            .padding(.top, 60)
+                            .padding(.top, viewModel.showManualControls ? 180 : 100)
                         Spacer()
                     }
                     .transition(.opacity.combined(with: .scale))

@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 2 Complete (Landscape + Recordings)
+**Status**: Iteration 3 Complete (Lighting Presets)
 
 ---
 
@@ -31,6 +31,14 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Swipe-to-delete recordings
 - Export to Camera Roll
 
+**Lighting Presets (Iteration 3)**
+- 4 lighting presets: Cloudy, Sunny, Floodlight, Manual
+- Preset bar at top of screen (always visible, transparent)
+- Manual mode shows stepper controls with visible values (ISO, EXP, WB)
+- Tap camera preview to collapse manual controls (stays in manual mode)
+- Currently implements exposure bias - simplest API that works with auto-exposure
+- Values displayed for field testing notes
+
 ### File Structure
 
 ```
@@ -40,7 +48,9 @@ unoapp/
 │   ├── CameraManager.swift      # AVFoundation camera control
 │   └── CameraPreviewView.swift  # Preview layer + rotation handling
 ├── Models/
-│   └── Recording.swift          # Recording data model
+│   ├── Recording.swift          # Recording data model
+│   ├── CameraPreset.swift       # Lighting preset enum (Cloudy/Sunny/Floodlight/Manual)
+│   └── CameraSettings.swift     # Camera settings struct with preset defaults
 ├── Services/
 │   ├── OrientationManager.swift # Device orientation tracking
 │   └── RecordingStorage.swift   # File scanning, thumbnails, export
@@ -49,6 +59,8 @@ unoapp/
 └── Views/
     ├── ViewfinderView.swift     # Main camera UI
     ├── AdaptiveToolbar.swift    # Orientation-aware control positioning
+    ├── PresetBar.swift          # Lighting preset buttons
+    ├── ManualControlsView.swift # Stepper controls for manual mode
     ├── RecordingsListView.swift # Recordings list with thumbnails
     ├── PlaybackView.swift       # Video playback + export
     ├── ThumbnailButton.swift    # Thumbnail button component
@@ -61,26 +73,14 @@ Note: Camera/photo permissions are in project build settings (INFOPLIST_KEY_*), 
 
 ## Next Steps
 
-### Iteration 3: Lighting Presets
-
-Add Cloudy/Sunny/Low-light preset buttons with hardcoded camera settings:
-
-- `CameraPreset.swift` - Preset enum
-- `CameraConfiguration.swift` - Hardcoded ISO/exposure/WB values
-- Add preset buttons to AdaptiveToolbar
-
-**Preset Values (to be tuned):**
-- Cloudy: Higher ISO (~400), cooler WB (~6000K), longer exposure
-- Sunny: Lower ISO (~100), neutral WB (~5500K), shorter exposure
-- Low-light: Max ISO (~1600), warm WB (~4000K), longest exposure
-
 ### Iteration 4: Polish & Field Testing
 
+- Field testing with Moment fisheye lens
+- Tune preset values based on real conditions (cloudy UK days, stadium floodlights)
+- Add full ISO/WB control if exposure bias alone isn't sufficient
 - Edge case handling (interruptions, storage full, low battery)
 - Haptic feedback on record start/stop
 - Recording file naming/renaming
-- Field testing across lighting conditions
-- Moment fisheye lens validation
 
 ---
 
@@ -104,6 +104,19 @@ AVCaptureDevice.default(.builtInUltraWideCamera, for: .video, position: .back)
 device.activeFormat = /* 3840x2160 format */
 device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
 ```
+
+### Lighting Preset Values
+
+Current defaults (to be tuned during field testing):
+
+| Preset | ISO | Exposure Bias | White Balance |
+|--------|-----|---------------|---------------|
+| Cloudy | 400 | +0.5 EV | 6500K |
+| Sunny | 100 | -0.5 EV | 5500K |
+| Floodlight | 800 | **-1.0 EV** | 4000K |
+| Manual | 400 | 0 EV | 5500K |
+
+**Note:** Currently only exposure bias is applied (simplest API). ISO and WB values are stored for future implementation if needed.
 
 ### Recordings Location
 
@@ -135,6 +148,16 @@ Videos are saved to the app's Documents directory:
 - [ ] Swipe-to-delete works
 - [ ] Export to Camera Roll works
 - [ ] Empty state shows when no recordings
+
+**Lighting Presets**
+- [ ] Preset bar visible at top of screen (no background)
+- [ ] Tapping preset switches selection
+- [ ] Manual mode shows stepper controls
+- [ ] Tap preview to collapse manual controls (stays in manual mode)
+- [ ] Tap Manual again to reopen controls
+- [ ] Steppers adjust values within valid ranges
+- [ ] Values display correctly for note-taking
+- [ ] Exposure changes visible in preview
 
 ---
 

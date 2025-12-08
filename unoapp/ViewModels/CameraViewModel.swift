@@ -36,6 +36,15 @@ final class CameraViewModel: ObservableObject {
     /// URL of the most recently saved recording (for thumbnail generation)
     @Published var lastRecordingURL: URL?
 
+    /// Currently selected lighting preset
+    @Published var selectedPreset: CameraPreset = .sunny
+
+    /// Manual camera settings (used when preset is .manual)
+    @Published var manualSettings: CameraSettings = .defaultManual
+
+    /// Whether manual controls panel is visible (can be collapsed while staying in manual mode)
+    @Published var showManualControls: Bool = false
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -153,6 +162,47 @@ final class CameraViewModel: ObservableObject {
         let minutes = Int(recordingDuration) / 60
         let seconds = Int(recordingDuration) % 60
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    // MARK: - Preset Selection
+
+    /// Select a lighting preset and apply its settings
+    func selectPreset(_ preset: CameraPreset) {
+        selectedPreset = preset
+        // Auto-show controls when switching to manual
+        if preset == .manual {
+            showManualControls = true
+        }
+        applyCurrentSettings()
+    }
+
+    /// Dismiss manual controls panel (stays in manual mode)
+    func dismissManualControls() {
+        showManualControls = false
+    }
+
+    /// Apply manual settings (called when steppers change in manual mode)
+    func applyManualSettings(_ settings: CameraSettings) {
+        manualSettings = settings
+        if selectedPreset == .manual {
+            cameraManager.applySettings(settings)
+        }
+    }
+
+    /// Apply camera settings based on current preset
+    private func applyCurrentSettings() {
+        let settings: CameraSettings
+        switch selectedPreset {
+        case .cloudy:
+            settings = .cloudy
+        case .sunny:
+            settings = .sunny
+        case .floodlight:
+            settings = .floodlight
+        case .manual:
+            settings = manualSettings
+        }
+        cameraManager.applySettings(settings)
     }
 
     // MARK: - Cleanup
