@@ -33,6 +33,9 @@ final class CameraViewModel: ObservableObject {
     /// Shows brief confirmation after recording saved
     @Published var showRecordingSaved: Bool = false
 
+    /// URL of the most recently saved recording (for thumbnail generation)
+    @Published var lastRecordingURL: URL?
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -127,6 +130,9 @@ final class CameraViewModel: ObservableObject {
     // MARK: - Recording Completion
 
     private func handleRecordingFinished(url: URL) {
+        // Store URL for thumbnail generation
+        lastRecordingURL = url
+
         // Show brief confirmation to user
         showRecordingSaved = true
 

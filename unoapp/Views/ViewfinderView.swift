@@ -6,6 +6,7 @@
 //
 //  Main camera viewfinder screen with recording controls.
 //  Designed for iOS 26 with Liquid Glass aesthetics.
+//  Supports both portrait and landscape orientations.
 //
 
 import SwiftUI
@@ -15,56 +16,97 @@ import SwiftUI
 /// - Camera preview is the hero content
 /// - Controls float and recede during recording
 /// - Minimal distractions, maximum focus on the footage
+/// - Adapts to orientation: bottom controls (portrait), right edge (landscape)
 struct ViewfinderView: View {
 
     @ObservedObject var viewModel: CameraViewModel
 
+    /// Tracks device orientation for adaptive layout
+    @State private var orientationManager = OrientationManager()
+
+    /// Navigate to recordings list
+    @State private var showRecordingsList = false
+
+    /// Thumbnail of most recent recording
+    @State private var lastThumbnail: UIImage?
+
     var body: some View {
-        ZStack {
-            // Full-screen camera preview
-            CameraPreviewView(session: viewModel.cameraManager.captureSession)
-                .ignoresSafeArea()
+        let isLandscape = orientationManager.isLandscape
 
-            // Overlay controls
-            VStack {
-                Spacer()
+        NavigationStack {
+            ZStack {
+                // Full-screen camera preview
+                CameraPreviewView(session: viewModel.cameraManager.captureSession)
+                    .ignoresSafeArea()
 
-                // Recording duration (only visible when recording)
+                // Recording indicator - stays at top in both orientations
                 if viewModel.isRecording {
-                    RecordingIndicator(duration: viewModel.formattedDuration)
-                        .transition(.opacity.combined(with: .scale))
+                    VStack {
+                        RecordingIndicator(duration: viewModel.formattedDuration)
+                            .padding(.top, 60)
+                        Spacer()
+                    }
+                    .transition(.opacity.combined(with: .scale))
                 }
 
-                Spacer()
-
-                // Bottom toolbar with record button
-                BottomToolbar(
+                // Adaptive toolbar with thumbnail + record button
+                // Portrait: record centered, thumbnail left
+                // Landscape: record centered, thumbnail top
+                AdaptiveToolbar(
+                    isLandscape: isLandscape,
+                    thumbnail: lastThumbnail,
                     isRecording: viewModel.isRecording,
+                    onThumbnailTap: { showRecordingsList = true },
                     onRecordTap: { viewModel.toggleRecording() }
                 )
-                .padding(.bottom, 30)
-            }
 
-            // Recording saved confirmation
-            if viewModel.showRecordingSaved {
-                RecordingSavedToast()
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+                // Recording saved confirmation
+                if viewModel.showRecordingSaved {
+                    RecordingSavedToast()
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
-            // Error message
-            if let error = viewModel.errorMessage {
-                ErrorBanner(message: error)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                // Error message
+                if let error = viewModel.errorMessage {
+                    ErrorBanner(message: error)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: viewModel.isRecording)
+            .animation(.easeInOut(duration: 0.3), value: viewModel.showRecordingSaved)
+            .animation(.easeInOut(duration: 0.3), value: viewModel.errorMessage)
+            .animation(.easeInOut(duration: 0.2), value: isLandscape)
+            .navigationDestination(isPresented: $showRecordingsList) {
+                RecordingsListView()
             }
         }
-        .animation(.easeInOut(duration: 0.3), value: viewModel.isRecording)
-        .animation(.easeInOut(duration: 0.3), value: viewModel.showRecordingSaved)
-        .animation(.easeInOut(duration: 0.3), value: viewModel.errorMessage)
         .onAppear {
             viewModel.setupCamera()
+            loadLastThumbnail()
         }
         .onDisappear {
             viewModel.stopCamera()
+        }
+        // Update thumbnail when a new recording is saved
+        .onChange(of: viewModel.showRecordingSaved) { _, saved in
+            if saved {
+                // Delay slightly to ensure file is written
+                Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    loadLastThumbnail()
+                }
+            }
+        }
+    }
+
+    /// Load thumbnail of most recent recording
+    private func loadLastThumbnail() {
+        Task { @MainActor in
+            let storage = RecordingStorage()
+            await storage.loadRecordings()
+            if let recent = storage.mostRecentRecording {
+                lastThumbnail = recent.thumbnail
+            }
         }
     }
 }
@@ -100,31 +142,6 @@ struct RecordingIndicator: View {
         .onAppear {
             isPulsing = true
         }
-    }
-}
-
-// MARK: - Bottom Toolbar
-
-/// Floating toolbar with record button
-/// Uses Liquid Glass material for iOS 26
-struct BottomToolbar: View {
-
-    let isRecording: Bool
-    let onRecordTap: () -> Void
-
-    var body: some View {
-        HStack {
-            Spacer()
-
-            // Record button
-            RecordButton(isRecording: isRecording, action: onRecordTap)
-
-            Spacer()
-        }
-        .padding(.horizontal, 40)
-        .padding(.vertical, 20)
-        .background(.ultraThinMaterial, in: Capsule())
-        .padding(.horizontal, 20)
     }
 }
 

@@ -29,7 +29,7 @@ struct CameraPreviewView: UIViewRepresentable {
 }
 
 /// UIView subclass that hosts the AVCaptureVideoPreviewLayer
-/// Handles proper layer sizing and video gravity
+/// Handles proper layer sizing, video gravity, and rotation
 final class CameraPreviewUIView: UIView {
 
     // The preview layer that displays the camera feed
@@ -44,10 +44,22 @@ final class CameraPreviewUIView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
+
+        // Listen for orientation changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleOrientationChange),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func setupPreviewLayer() {
@@ -66,14 +78,51 @@ final class CameraPreviewUIView: UIView {
         layer.frame = bounds
         self.layer.addSublayer(layer)
         previewLayer = layer
+
+        // Set initial orientation
+        updatePreviewOrientation()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
 
         // Update preview layer frame when view size changes
-        // Important for rotation and safe area changes
         previewLayer?.frame = bounds
+    }
+
+    @objc private func handleOrientationChange() {
+        updatePreviewOrientation()
+    }
+
+    /// Update preview layer rotation to match device orientation
+    private func updatePreviewOrientation() {
+        guard let connection = previewLayer?.connection,
+              connection.isVideoRotationAngleSupported(0) else { return }
+
+        let orientation = UIDevice.current.orientation
+
+        // Map device orientation to video rotation angle
+        // These values ensure the preview is right-side-up for each orientation
+        let rotationAngle: CGFloat
+        switch orientation {
+        case .portrait:
+            rotationAngle = 90
+        case .portraitUpsideDown:
+            rotationAngle = 270
+        case .landscapeLeft:
+            // Home button on right
+            rotationAngle = 0
+        case .landscapeRight:
+            // Home button on left
+            rotationAngle = 180
+        default:
+            // For .faceUp, .faceDown, .unknown - keep current
+            return
+        }
+
+        if connection.isVideoRotationAngleSupported(rotationAngle) {
+            connection.videoRotationAngle = rotationAngle
+        }
     }
 }
 
