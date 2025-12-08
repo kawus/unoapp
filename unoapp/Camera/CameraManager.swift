@@ -175,6 +175,39 @@ final class CameraManager: NSObject, ObservableObject {
         } catch {
             print("Could not apply camera settings: \(error.localizedDescription)")
         }
+
+        // Also apply metering zone
+        applyMeteringZone(settings.meteringZone)
+    }
+
+    /// Set the exposure metering zone
+    /// Tells the camera which area of the frame to use for auto-exposure calculations
+    func applyMeteringZone(_ zone: MeteringZone) {
+        guard let device = videoDevice else { return }
+
+        // Check if device supports point of interest for exposure
+        guard device.isExposurePointOfInterestSupported else {
+            print("Exposure point of interest not supported on this device")
+            return
+        }
+
+        do {
+            try device.lockForConfiguration()
+
+            // Set the metering point
+            device.exposurePointOfInterest = zone.point
+
+            // Must set exposure mode for the point to take effect
+            if device.isExposureModeSupported(.continuousAutoExposure) {
+                device.exposureMode = .continuousAutoExposure
+            } else if device.isExposureModeSupported(.autoExpose) {
+                device.exposureMode = .autoExpose
+            }
+
+            device.unlockForConfiguration()
+        } catch {
+            print("Could not apply metering zone: \(error.localizedDescription)")
+        }
     }
 
     // MARK: - Session Control

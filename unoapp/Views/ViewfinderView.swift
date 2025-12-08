@@ -36,20 +36,39 @@ struct ViewfinderView: View {
         NavigationStack {
             ZStack {
                 // Full-screen camera preview
-                // Tap to dismiss manual controls panel
+                // Tap to dismiss manual controls panel and metering grid
                 CameraPreviewView(session: viewModel.cameraManager.captureSession)
                     .ignoresSafeArea()
                     .onTapGesture {
                         viewModel.dismissManualControls()
+                        if viewModel.showMeteringGrid {
+                            viewModel.toggleMeteringGrid()
+                        }
                     }
+
+                // Metering grid overlay (when visible)
+                if viewModel.showMeteringGrid {
+                    MeteringGridOverlay(
+                        selectedZone: $viewModel.manualSettings.meteringZone,
+                        onZoneSelected: { zone in
+                            viewModel.selectMeteringZone(zone)
+                        }
+                    )
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                }
 
                 // Main UI overlay
                 VStack(spacing: 0) {
                     // Preset bar at top (always visible)
                     PresetBar(
                         selectedPreset: $viewModel.selectedPreset,
+                        showMeteringGrid: viewModel.showMeteringGrid,
                         onPresetSelected: { preset in
                             viewModel.selectPreset(preset)
+                        },
+                        onGridToggle: {
+                            viewModel.toggleMeteringGrid()
                         }
                     )
 
@@ -68,6 +87,7 @@ struct ViewfinderView: View {
                 }
                 .animation(.easeInOut(duration: 0.2), value: viewModel.selectedPreset)
                 .animation(.easeInOut(duration: 0.2), value: viewModel.showManualControls)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.showMeteringGrid)
 
                 // Recording indicator - below preset bar
                 if viewModel.isRecording {

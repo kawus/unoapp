@@ -45,6 +45,9 @@ final class CameraViewModel: ObservableObject {
     /// Whether manual controls panel is visible (can be collapsed while staying in manual mode)
     @Published var showManualControls: Bool = false
 
+    /// Whether the metering grid overlay is visible
+    @Published var showMeteringGrid: Bool = false
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -203,6 +206,37 @@ final class CameraViewModel: ObservableObject {
             settings = manualSettings
         }
         cameraManager.applySettings(settings)
+    }
+
+    // MARK: - Metering Grid
+
+    /// Toggle the metering grid overlay visibility
+    func toggleMeteringGrid() {
+        showMeteringGrid.toggle()
+    }
+
+    /// Select a metering zone for exposure calculations
+    /// Updates current settings and applies immediately
+    func selectMeteringZone(_ zone: MeteringZone) {
+        // Update the manual settings (always track the selected zone there)
+        manualSettings.meteringZone = zone
+
+        // Apply the zone immediately
+        cameraManager.applyMeteringZone(zone)
+    }
+
+    /// Current metering zone based on preset or manual selection
+    var currentMeteringZone: MeteringZone {
+        switch selectedPreset {
+        case .cloudy:
+            return CameraSettings.cloudy.meteringZone
+        case .sunny:
+            return CameraSettings.sunny.meteringZone
+        case .floodlight:
+            return CameraSettings.floodlight.meteringZone
+        case .manual:
+            return manualSettings.meteringZone
+        }
     }
 
     // MARK: - Cleanup

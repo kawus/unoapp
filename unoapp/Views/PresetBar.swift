@@ -1,12 +1,15 @@
 import SwiftUI
 
-/// Horizontal bar of lighting preset buttons
+/// Horizontal bar of lighting preset buttons with metering grid toggle
 struct PresetBar: View {
     @Binding var selectedPreset: CameraPreset
+    let showMeteringGrid: Bool
     let onPresetSelected: (CameraPreset) -> Void
+    let onGridToggle: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
+            // Preset buttons
             ForEach(CameraPreset.allCases) { preset in
                 PresetButton(
                     preset: preset,
@@ -17,9 +20,38 @@ struct PresetBar: View {
                     }
                 )
             }
+
+            // Divider
+            Rectangle()
+                .fill(Color.white.opacity(0.3))
+                .frame(width: 1, height: 30)
+                .padding(.horizontal, 4)
+
+            // Metering grid toggle button
+            GridToggleButton(
+                isActive: showMeteringGrid,
+                action: onGridToggle
+            )
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+}
+
+/// Toggle button for metering grid overlay
+struct GridToggleButton: View {
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "square.grid.3x3")
+                .font(.system(size: 20))
+                .frame(width: 44, height: 44)
+                .background(isActive ? Color.white.opacity(0.25) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .foregroundStyle(isActive ? .white : .white.opacity(0.7))
     }
 }
 
@@ -54,7 +86,9 @@ struct PresetButton: View {
         VStack {
             PresetBar(
                 selectedPreset: .constant(.sunny),
-                onPresetSelected: { _ in }
+                showMeteringGrid: false,
+                onPresetSelected: { _ in },
+                onGridToggle: {}
             )
             Spacer()
         }
