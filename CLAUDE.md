@@ -6,23 +6,30 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 1 (Walking Skeleton) Complete
+**Status**: Iteration 2 Complete (Landscape + Recordings)
 
 ---
 
 ## Current State
 
-### Implemented (Iteration 1 - Walking Skeleton)
+### Implemented Features
 
-The core camera functionality is complete:
+**Core Camera (Iteration 1)**
+- Full-screen live preview of ultrawide camera
+- Start/stop video recording with visual feedback
+- Hardcoded to `.builtInUltraWideCamera`
+- Stabilization disabled for maximum FOV
+- 4K 30fps recording
+- Permission handling with Settings deep link
 
-- **Camera Preview**: Full-screen live preview of ultrawide camera
-- **Recording**: Start/stop video recording with visual feedback
-- **Ultrawide Lens**: Hardcoded to `.builtInUltraWideCamera`
-- **Stabilization Disabled**: `preferredVideoStabilizationMode = .off` for maximum FOV
-- **4K 30fps**: Configured for quality/file size balance
-- **Permission Handling**: Settings deep link when camera access denied
-- **iOS 26 Styling**: Liquid Glass materials on floating controls
+**Landscape + Recordings (Iteration 2)**
+- Landscape orientation support with adaptive UI
+- Camera preview rotates correctly in all orientations
+- Record button centered, thumbnail button offset
+- In-app recordings list with thumbnails
+- Video playback with native controls
+- Swipe-to-delete recordings
+- Export to Camera Roll
 
 ### File Structure
 
@@ -31,11 +38,20 @@ unoapp/
 ├── unoappApp.swift              # App entry point + permission routing
 ├── Camera/
 │   ├── CameraManager.swift      # AVFoundation camera control
-│   └── CameraPreviewView.swift  # UIViewRepresentable for preview
+│   └── CameraPreviewView.swift  # Preview layer + rotation handling
+├── Models/
+│   └── Recording.swift          # Recording data model
+├── Services/
+│   ├── OrientationManager.swift # Device orientation tracking
+│   └── RecordingStorage.swift   # File scanning, thumbnails, export
 ├── ViewModels/
 │   └── CameraViewModel.swift    # State management
 └── Views/
     ├── ViewfinderView.swift     # Main camera UI
+    ├── AdaptiveToolbar.swift    # Orientation-aware control positioning
+    ├── RecordingsListView.swift # Recordings list with thumbnails
+    ├── PlaybackView.swift       # Video playback + export
+    ├── ThumbnailButton.swift    # Thumbnail button component
     └── PermissionView.swift     # Permission denied screen
 ```
 
@@ -43,33 +59,28 @@ Note: Camera/photo permissions are in project build settings (INFOPLIST_KEY_*), 
 
 ---
 
-## Future Iterations
+## Next Steps
 
-### Iteration 2: Lighting Presets (Pending)
+### Iteration 3: Lighting Presets
 
 Add Cloudy/Sunny/Low-light preset buttons with hardcoded camera settings:
 
 - `CameraPreset.swift` - Preset enum
 - `CameraConfiguration.swift` - Hardcoded ISO/exposure/WB values
-- Update ViewfinderView with three preset buttons
+- Add preset buttons to AdaptiveToolbar
 
 **Preset Values (to be tuned):**
 - Cloudy: Higher ISO (~400), cooler WB (~6000K), longer exposure
 - Sunny: Lower ISO (~100), neutral WB (~5500K), shorter exposure
 - Low-light: Max ISO (~1600), warm WB (~4000K), longest exposure
 
-### Iteration 3: Recordings List + Playback (Pending)
+### Iteration 4: Polish & Field Testing
 
-- `Recording.swift` - Data model with metadata
-- `RecordingStorage.swift` - File persistence & thumbnails
-- `RecordingsListView.swift` - List UI with rename support
-- `PlaybackView.swift` - Video player + export to Camera Roll
-
-### Iteration 4: Polish & Field Testing (Pending)
-
-- Liquid Glass refinements
-- Edge case handling (interruptions, storage full)
+- Edge case handling (interruptions, storage full, low battery)
+- Haptic feedback on record start/stop
+- Recording file naming/renaming
 - Field testing across lighting conditions
+- Moment fisheye lens validation
 
 ---
 
@@ -103,12 +114,27 @@ Videos are saved to the app's Documents directory:
 
 ## Testing Checklist
 
+**Camera & Recording**
 - [ ] Camera preview shows full ultrawide FOV
 - [ ] Recording starts/stops correctly
 - [ ] Recordings save to Documents directory
 - [ ] Permission denied shows Settings link
-- [ ] Settings link opens correct app settings page
 - [ ] With Moment fisheye: Full 180° pitch visible
+
+**Landscape & Orientation**
+- [ ] UI adapts when rotating to landscape
+- [ ] Camera preview rotates correctly (not upside down)
+- [ ] Record button stays centered in both orientations
+- [ ] Thumbnail button stays accessible in both orientations
+
+**Recordings List**
+- [ ] Thumbnail button shows most recent recording
+- [ ] Tapping thumbnail opens recordings list
+- [ ] List shows all recordings with thumbnails
+- [ ] Tapping recording opens playback
+- [ ] Swipe-to-delete works
+- [ ] Export to Camera Roll works
+- [ ] Empty state shows when no recordings
 
 ---
 
