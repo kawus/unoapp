@@ -81,6 +81,9 @@ final class RecordingStorage {
             // Generate thumbnail
             let thumbnail = await generateThumbnail(for: url)
 
+            // Load metadata sidecar (if exists)
+            let metadata = loadMetadata(for: url)
+
             return Recording(
                 id: UUID(),
                 url: url,
@@ -88,10 +91,32 @@ final class RecordingStorage {
                 createdAt: creationDate,
                 duration: durationSeconds.isNaN ? 0 : durationSeconds,
                 fileSize: fileSize,
-                thumbnail: thumbnail
+                thumbnail: thumbnail,
+                metadata: metadata
             )
         } catch {
             print("Failed to create recording from \(url): \(error)")
+            return nil
+        }
+    }
+
+    // MARK: - Metadata Loading
+
+    /// Load metadata JSON sidecar for a recording
+    private func loadMetadata(for videoURL: URL) -> RecordingMetadata? {
+        let metadataURL = videoURL.deletingPathExtension().appendingPathExtension("json")
+
+        guard fileManager.fileExists(atPath: metadataURL.path) else {
+            return nil  // Legacy recording without metadata
+        }
+
+        do {
+            let data = try Data(contentsOf: metadataURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode(RecordingMetadata.self, from: data)
+        } catch {
+            print("Failed to load metadata from \(metadataURL): \(error)")
             return nil
         }
     }
@@ -116,9 +141,15 @@ final class RecordingStorage {
 
     // MARK: - Delete Recording
 
-    /// Delete a recording from disk
+    /// Delete a recording from disk (including metadata sidecar)
     func deleteRecording(_ recording: Recording) throws {
+        // Delete video file
         try fileManager.removeItem(at: recording.url)
+
+        // Delete metadata sidecar (if exists)
+        let metadataURL = recording.url.deletingPathExtension().appendingPathExtension("json")
+        try? fileManager.removeItem(at: metadataURL)  // Ignore error if doesn't exist
+
         recordings.removeAll { $0.id == recording.id }
     }
 

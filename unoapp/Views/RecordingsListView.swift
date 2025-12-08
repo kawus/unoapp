@@ -106,12 +106,19 @@ struct RecordingRow: View {
                 Text(recording.formattedDate)
                     .font(.headline)
 
+                // Settings summary (if available)
+                if let metadata = recording.metadata {
+                    Text(metadata.summaryText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
                 HStack(spacing: 8) {
                     Label(recording.formattedDuration, systemImage: "clock")
                     Label(recording.formattedFileSize, systemImage: "doc")
                 }
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
             }
 
             Spacer()

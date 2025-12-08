@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 3 Complete (Lighting Presets + Metering Zones)
+**Status**: Iteration 3.5 Complete (Recording Metadata)
 
 ---
 
@@ -47,6 +47,14 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Zone selection persists when switching presets
 - Uses AVFoundation `exposurePointOfInterest` API
 
+**Recording Metadata (Iteration 3.5)**
+- Camera settings saved with each recording as JSON sidecar file
+- Stores: preset, exposure bias, metering zone, ISO, white balance
+- Recordings list shows summary (e.g., "Floodlight • -1.0 EV")
+- Playback view shows full settings in header area
+- Legacy recordings without metadata still work
+- JSON is human-readable for field testing debugging
+
 ### File Structure
 
 ```
@@ -57,6 +65,7 @@ unoapp/
 │   └── CameraPreviewView.swift  # Preview layer + rotation handling
 ├── Models/
 │   ├── Recording.swift          # Recording data model
+│   ├── RecordingMetadata.swift  # Settings metadata saved with recordings
 │   ├── CameraPreset.swift       # Lighting preset enum (Cloudy/Sunny/Floodlight/Manual)
 │   ├── CameraSettings.swift     # Camera settings struct with preset defaults
 │   └── MeteringZone.swift       # 3x3 metering zone enum with AVFoundation coordinates
@@ -151,6 +160,21 @@ device.exposureMode = .continuousAutoExposure
 Videos are saved to the app's Documents directory:
 `Documents/unoapp_YYYY-MM-DD_HH-mm-ss.mov`
 
+Metadata JSON sidecars are saved alongside:
+`Documents/unoapp_YYYY-MM-DD_HH-mm-ss.json`
+
+Example metadata file:
+```json
+{
+  "preset": "floodlight",
+  "exposureBias": -1.0,
+  "meteringZone": "bottomCenter",
+  "iso": 800,
+  "whiteBalance": 4000,
+  "recordedAt": "2025-12-08T14:30:00Z"
+}
+```
+
 ---
 
 ## Testing Checklist
@@ -195,6 +219,14 @@ Videos are saved to the app's Documents directory:
 - [ ] Tap preview to hide grid (same as manual controls)
 - [ ] Grid works in both portrait and landscape
 - [ ] Floodlight preset defaults to bottom-center zone
+
+**Recording Metadata**
+- [ ] Recording creates both .mov and .json files
+- [ ] JSON contains correct preset, exposure, metering zone
+- [ ] Recordings list shows settings summary (e.g., "Floodlight • -1.0 EV")
+- [ ] Legacy recordings without JSON display gracefully
+- [ ] Playback view shows full settings in header
+- [ ] Deleting recording removes both .mov and .json files
 
 ---
 

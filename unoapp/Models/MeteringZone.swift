@@ -61,4 +61,35 @@ enum MeteringZone: Int, CaseIterable, Identifiable, Equatable {
         case .bottomRight: return "BR"
         }
     }
+
+    /// String value for JSON serialization
+    var stringValue: String {
+        switch self {
+        case .topLeft: return "topLeft"
+        case .topCenter: return "topCenter"
+        case .topRight: return "topRight"
+        case .middleLeft: return "middleLeft"
+        case .center: return "center"
+        case .middleRight: return "middleRight"
+        case .bottomLeft: return "bottomLeft"
+        case .bottomCenter: return "bottomCenter"
+        case .bottomRight: return "bottomRight"
+        }
+    }
+
+    /// Create from string value (for JSON decoding)
+    static func from(string: String) -> MeteringZone? {
+        switch string {
+        case "topLeft": return .topLeft
+        case "topCenter": return .topCenter
+        case "topRight": return .topRight
+        case "middleLeft": return .middleLeft
+        case "center": return .center
+        case "middleRight": return .middleRight
+        case "bottomLeft": return .bottomLeft
+        case "bottomCenter": return .bottomCenter
+        case "bottomRight": return .bottomRight
+        default: return nil
+        }
+    }
 }

@@ -36,6 +36,7 @@ final class CameraManager: NSObject, ObservableObject {
     // MARK: - Recording Storage
 
     private var currentRecordingURL: URL?
+    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings)?
     var onRecordingFinished: ((URL) -> Void)?
 
     // MARK: - Initialization
@@ -232,9 +233,15 @@ final class CameraManager: NSObject, ObservableObject {
 
     // MARK: - Recording
 
-    /// Start recording video to a temporary file
-    func startRecording() {
+    /// Start recording video with current camera settings
+    /// - Parameters:
+    ///   - preset: The lighting preset currently selected
+    ///   - settings: The camera settings being applied
+    func startRecording(preset: CameraPreset, settings: CameraSettings) {
         guard let videoOutput = videoOutput, !isRecording else { return }
+
+        // Store metadata to save when recording completes
+        currentRecordingMetadata = (preset, settings)
 
         // Create unique filename with timestamp
         let formatter = DateFormatter()
@@ -300,15 +307,39 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
                     error: Error?) {
 
         if let error = error {
+            currentRecordingMetadata = nil
             DispatchQueue.main.async {
                 self.error = .recordingFailed(error.localizedDescription)
             }
             return
         }
 
+        // Save metadata sidecar alongside the video
+        if let (preset, settings) = currentRecordingMetadata {
+            let metadata = RecordingMetadata(preset: preset, settings: settings)
+            saveMetadata(metadata, for: outputFileURL)
+        }
+        currentRecordingMetadata = nil
+
         // Notify that recording finished successfully
         DispatchQueue.main.async {
             self.onRecordingFinished?(outputFileURL)
+        }
+    }
+
+    /// Save metadata JSON sidecar alongside the video file
+    private func saveMetadata(_ metadata: RecordingMetadata, for videoURL: URL) {
+        let metadataURL = videoURL.deletingPathExtension().appendingPathExtension("json")
+
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = .prettyPrinted  // Human-readable for field testing
+            let data = try encoder.encode(metadata)
+            try data.write(to: metadataURL)
+        } catch {
+            // Non-fatal: recording still saved, just without metadata
+            print("Failed to save recording metadata: \(error.localizedDescription)")
         }
     }
 }

@@ -128,10 +128,24 @@ final class CameraViewModel: ObservableObject {
         }
     }
 
-    /// Start a new recording
+    /// Start a new recording with current settings
     func startRecording() {
         errorMessage = nil
-        cameraManager.startRecording()
+
+        // Get current effective settings to save with recording
+        let settings: CameraSettings
+        switch selectedPreset {
+        case .cloudy:
+            settings = .cloudy
+        case .sunny:
+            settings = .sunny
+        case .floodlight:
+            settings = .floodlight
+        case .manual:
+            settings = manualSettings
+        }
+
+        cameraManager.startRecording(preset: selectedPreset, settings: settings)
     }
 
     /// Stop the current recording

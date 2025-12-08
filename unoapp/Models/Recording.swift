@@ -22,6 +22,9 @@ struct Recording: Identifiable, Hashable {
     /// Thumbnail image (not included in Hashable)
     var thumbnail: UIImage?
 
+    /// Camera settings used when recording (nil for legacy recordings)
+    var metadata: RecordingMetadata?
+
     // MARK: - Hashable (exclude thumbnail since UIImage isn't Hashable)
 
     func hash(into hasher: inout Hasher) {

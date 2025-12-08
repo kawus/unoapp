@@ -24,30 +24,36 @@ struct PlaybackView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack {
+        VStack(spacing: 0) {
+            // Header with date and settings
+            recordingHeader
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+
             // Video player
-            if let player = player {
-                VideoPlayer(player: player)
-                    .ignoresSafeArea()
-            } else {
-                ProgressView()
-            }
-
-            // Export success toast
-            if showExportSuccess {
-                VStack {
-                    HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("Saved to Camera Roll")
-                    }
-                    .padding()
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.top, 60)
-
-                    Spacer()
+            ZStack {
+                if let player = player {
+                    VideoPlayer(player: player)
+                } else {
+                    ProgressView()
                 }
-                .transition(.move(edge: .top).combined(with: .opacity))
+
+                // Export success toast
+                if showExportSuccess {
+                    VStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Saved to Camera Roll")
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .padding(.top, 16)
+
+                        Spacer()
+                    }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -101,6 +107,41 @@ struct PlaybackView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showExportSuccess)
     }
+
+    // MARK: - Recording Header
+
+    private var recordingHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Date and duration
+            HStack {
+                Text(recording.formattedDate)
+                    .font(.headline)
+                Spacer()
+                Text(recording.formattedDuration)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Settings (if available)
+            if let metadata = recording.metadata {
+                HStack(spacing: 16) {
+                    ForEach(metadata.detailLines, id: \.label) { item in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.label)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Text(item.value)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    // MARK: - Actions
 
     private func exportToCameraRoll() {
         Task {
