@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 3.6 Complete (Video Orientation Fix)
+**Status**: Iteration 3.7 Complete (Metering Zone Metadata Fix)
 
 ---
 
@@ -44,7 +44,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Grid toggle button in bottom toolbar (next to record button, opposite thumbnail)
 - Tap a zone to set where camera calculates auto-exposure
 - Each preset has a default zone (floodlight defaults to bottom-center to avoid bright lights)
-- Zone selection persists when switching presets
+- Switching presets resets zone to that preset's default
 - Uses AVFoundation `exposurePointOfInterest` API
 
 **Recording Metadata (Iteration 3.5)**
@@ -61,6 +61,12 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Thumbnails display with correct orientation
 - Uses AVCaptureConnection.videoRotationAngle at recording start
 - Playback uses AVPlayerViewController for proper transform handling
+
+**Metering Zone Metadata Fix (Iteration 3.7)**
+- Fixed: Metadata now saves user's actual metering zone selection, not preset default
+- Added `selectedMeteringZone` property to track zone independently from presets
+- Zone resets to preset default when switching presets
+- Manual zone changes within a preset are correctly saved to recording metadata
 
 ### File Structure
 
@@ -234,6 +240,7 @@ Example metadata file:
 **Recording Metadata**
 - [ ] Recording creates both .mov and .json files
 - [ ] JSON contains correct preset, exposure, metering zone
+- [ ] Manual zone change (e.g., Sunny + bottom-center) saves correctly in metadata
 - [ ] Recordings list shows settings summary (e.g., "Floodlight • -1.0 EV")
 - [ ] Legacy recordings without JSON display gracefully
 - [ ] Playback view shows full settings in header

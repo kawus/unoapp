@@ -48,6 +48,9 @@ final class CameraViewModel: ObservableObject {
     /// Whether the metering grid overlay is visible
     @Published var showMeteringGrid: Bool = false
 
+    /// Currently selected metering zone (tracks user's choice, persists across preset changes until explicitly reset)
+    @Published var selectedMeteringZone: MeteringZone = .center
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -132,8 +135,8 @@ final class CameraViewModel: ObservableObject {
     func startRecording() {
         errorMessage = nil
 
-        // Get current effective settings to save with recording
-        let settings: CameraSettings
+        // Get base settings from preset
+        var settings: CameraSettings
         switch selectedPreset {
         case .cloudy:
             settings = .cloudy
@@ -144,6 +147,9 @@ final class CameraViewModel: ObservableObject {
         case .manual:
             settings = manualSettings
         }
+
+        // Override metering zone with user's actual selection
+        settings.meteringZone = selectedMeteringZone
 
         cameraManager.startRecording(preset: selectedPreset, settings: settings)
     }
@@ -190,6 +196,15 @@ final class CameraViewModel: ObservableObject {
         if preset == .manual {
             showManualControls = true
         }
+        // Reset metering zone to preset's default when switching presets
+        let presetSettings: CameraSettings
+        switch preset {
+        case .cloudy: presetSettings = .cloudy
+        case .sunny: presetSettings = .sunny
+        case .floodlight: presetSettings = .floodlight
+        case .manual: presetSettings = manualSettings
+        }
+        selectedMeteringZone = presetSettings.meteringZone
         applyCurrentSettings()
     }
 
@@ -232,25 +247,21 @@ final class CameraViewModel: ObservableObject {
     /// Select a metering zone for exposure calculations
     /// Updates current settings and applies immediately
     func selectMeteringZone(_ zone: MeteringZone) {
-        // Update the manual settings (always track the selected zone there)
-        manualSettings.meteringZone = zone
+        // Track the user's zone selection
+        selectedMeteringZone = zone
 
-        // Apply the zone immediately
+        // Also update manual settings if in manual mode (keeps them in sync)
+        if selectedPreset == .manual {
+            manualSettings.meteringZone = zone
+        }
+
+        // Apply the zone immediately to camera
         cameraManager.applyMeteringZone(zone)
     }
 
-    /// Current metering zone based on preset or manual selection
+    /// Current metering zone (returns user's actual selection)
     var currentMeteringZone: MeteringZone {
-        switch selectedPreset {
-        case .cloudy:
-            return CameraSettings.cloudy.meteringZone
-        case .sunny:
-            return CameraSettings.sunny.meteringZone
-        case .floodlight:
-            return CameraSettings.floodlight.meteringZone
-        case .manual:
-            return manualSettings.meteringZone
-        }
+        selectedMeteringZone
     }
 
     // MARK: - Cleanup
