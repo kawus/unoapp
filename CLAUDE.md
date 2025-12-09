@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 3.7 Complete (Metering Zone Metadata Fix)
+**Status**: Iteration 4 Complete (UX Polish - Animation & Haptics)
 
 ---
 
@@ -67,6 +67,12 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Added `selectedMeteringZone` property to track zone independently from presets
 - Zone resets to preset default when switching presets
 - Manual zone changes within a preset are correctly saved to recording metadata
+
+**UX Polish (Iteration 4)**
+- Haptic feedback on record button (medium impact on tap, rigid impact on state change)
+- Press feedback animation on all interactive buttons (scale to 90-92% on press)
+- Spring animations on selection state changes (presets, zones, grid toggle)
+- Consistent animation patterns across: PresetButton, ZoneCell, StepperButton, GridToggleButton, ThumbnailButton
 
 ### File Structure
 
@@ -245,6 +251,19 @@ Example metadata file:
 - [ ] Legacy recordings without JSON display gracefully
 - [ ] Playback view shows full settings in header
 - [ ] Deleting recording removes both .mov and .json files
+
+**UX Polish (Iteration 4)**
+- [ ] Record button gives haptic feedback on tap
+- [ ] Record start AND stop both have haptic
+- [ ] Preset buttons scale down on press
+- [ ] Preset selection animates smoothly
+- [ ] Grid toggle scales on press
+- [ ] Zone cells scale/fade on press
+- [ ] Zone selection animates smoothly
+- [ ] Stepper buttons scale on press (when enabled)
+- [ ] Thumbnail button scales on press
+- [ ] All animations feel responsive (not sluggish)
+- [ ] No animation conflicts or glitches in landscape
 
 ---
 

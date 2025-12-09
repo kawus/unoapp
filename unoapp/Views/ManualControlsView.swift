@@ -104,21 +104,34 @@ struct SettingRow: View {
 }
 
 /// Circular stepper button
+/// Includes press feedback animation when enabled
 struct StepperButton: View {
     let systemName: String
     let action: () -> Void
     let isEnabled: Bool
 
+    @State private var isPressed = false
+
     var body: some View {
-        Button(action: action) {
+        Button {
+            if isEnabled { action() }
+        } label: {
             Image(systemName: systemName)
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(isEnabled ? .white : .white.opacity(0.3))
                 .frame(width: 36, height: 36)
                 .background(isEnabled ? Color.white.opacity(0.2) : Color.white.opacity(0.05))
                 .clipShape(Circle())
+                .scaleEffect(isPressed && isEnabled ? 0.9 : 1.0)
         }
+        .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .animation(.easeOut(duration: 0.1), value: isPressed)
     }
 }
 

@@ -73,12 +73,15 @@ struct GridLines: View {
 }
 
 /// Individual tappable zone cell
+/// Includes press feedback and smooth selection animation
 struct ZoneCell: View {
     let zone: MeteringZone
     let isSelected: Bool
     let width: CGFloat
     let height: CGFloat
     let action: () -> Void
+
+    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
@@ -103,8 +106,17 @@ struct ZoneCell: View {
             }
             .frame(width: width, height: height)
             .contentShape(Rectangle())
+            .scaleEffect(isPressed ? 0.95 : 1.0)
+            .opacity(isPressed ? 0.7 : 1.0)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .animation(.easeOut(duration: 0.1), value: isPressed)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
     }
 }
 

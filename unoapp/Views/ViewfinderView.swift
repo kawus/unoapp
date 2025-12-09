@@ -196,13 +196,19 @@ struct RecordingIndicator: View {
 // MARK: - Record Button
 
 /// Large circular record button with stop/record states
+/// Includes haptic feedback on tap for tactile confirmation
 struct RecordButton: View {
 
     let isRecording: Bool
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            // Trigger haptic BEFORE action for instant feedback
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
+            action()
+        } label: {
             ZStack {
                 // Outer ring
                 Circle()
@@ -225,6 +231,8 @@ struct RecordButton: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
+        // Additional haptic when recording state actually changes
+        .sensoryFeedback(.impact(flexibility: .rigid), trigger: isRecording)
     }
 }
 

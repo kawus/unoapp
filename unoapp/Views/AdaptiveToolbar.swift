@@ -66,9 +66,12 @@ struct AdaptiveToolbar: View {
 // MARK: - Grid Toggle Button
 
 /// Toggle button for metering grid overlay (44x44pt to match ThumbnailButton)
+/// Includes press feedback and smooth toggle animation
 struct GridToggleButton: View {
     let isActive: Bool
     let action: () -> Void
+
+    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
@@ -77,9 +80,17 @@ struct GridToggleButton: View {
                 .frame(width: 44, height: 44)
                 .background(isActive ? Color.white.opacity(0.25) : Color.white.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .scaleEffect(isPressed ? 0.9 : 1.0)
         }
         .foregroundStyle(isActive ? .white : .white.opacity(0.7))
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+        .animation(.easeOut(duration: 0.1), value: isPressed)
+        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isActive)
     }
 }
 
