@@ -51,6 +51,9 @@ final class CameraViewModel: ObservableObject {
     /// Currently selected metering zone (tracks user's choice, persists across preset changes until explicitly reset)
     @Published var selectedMeteringZone: MeteringZone = .center
 
+    /// Currently selected camera lens
+    @Published var selectedLens: CameraLens = .ultraWide
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -262,6 +265,21 @@ final class CameraViewModel: ObservableObject {
     /// Current metering zone (returns user's actual selection)
     var currentMeteringZone: MeteringZone {
         selectedMeteringZone
+    }
+
+    // MARK: - Lens Selection
+
+    /// Select a different camera lens
+    /// Preserves current preset and exposure settings
+    func selectLens(_ lens: CameraLens) {
+        guard lens != selectedLens else { return }
+        guard !isRecording else { return }  // Can't switch during recording
+
+        selectedLens = lens
+        cameraManager.switchCamera(to: lens)
+
+        // Reapply current settings after lens switch
+        applyCurrentSettings()
     }
 
     // MARK: - Cleanup

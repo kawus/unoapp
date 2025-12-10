@@ -36,8 +36,11 @@ final class CameraManager: NSObject, ObservableObject {
     // MARK: - Recording Storage
 
     private var currentRecordingURL: URL?
-    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings)?
+    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens)?
     var onRecordingFinished: ((URL) -> Void)?
+
+    /// Currently active camera lens
+    private(set) var currentLens: CameraLens = .ultraWide
 
     // MARK: - Initialization
 
@@ -231,6 +234,74 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Lens Switching
+
+    /// Switch to a different camera lens
+    /// - Parameter lens: The lens to switch to
+    /// - Note: Cannot be called while recording. Causes brief preview interruption.
+    func switchCamera(to lens: CameraLens) {
+        // Don't switch while recording
+        guard !isRecording else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+
+            // Get the new camera device
+            guard let newDevice = AVCaptureDevice.default(
+                lens.deviceType,
+                for: .video,
+                position: .back
+            ) else {
+                DispatchQueue.main.async {
+                    self.error = .cameraNotAvailable(lens.label)
+                }
+                return
+            }
+
+            // Reconfigure the session
+            self.captureSession.beginConfiguration()
+
+            // Remove existing video input
+            if let currentInput = self.captureSession.inputs.first as? AVCaptureDeviceInput {
+                self.captureSession.removeInput(currentInput)
+            }
+
+            // Configure new device for 4K 30fps
+            self.configure4K30fps(device: newDevice)
+
+            // Add new input
+            do {
+                let newInput = try AVCaptureDeviceInput(device: newDevice)
+                if self.captureSession.canAddInput(newInput) {
+                    self.captureSession.addInput(newInput)
+                    self.videoDevice = newDevice
+
+                    // Track current lens
+                    DispatchQueue.main.async {
+                        self.currentLens = lens
+                    }
+
+                    // CRITICAL: Ensure stabilization stays OFF for maximum FOV
+                    if let connection = self.videoOutput?.connection(with: .video) {
+                        if connection.isVideoStabilizationSupported {
+                            connection.preferredVideoStabilizationMode = .off
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.error = .cannotAddInput
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.error = .inputCreationFailed(error.localizedDescription)
+                }
+            }
+
+            self.captureSession.commitConfiguration()
+        }
+    }
+
     // MARK: - Recording
 
     /// Start recording video with current camera settings
@@ -264,7 +335,7 @@ final class CameraManager: NSObject, ObservableObject {
         }
 
         // Store metadata to save when recording completes
-        currentRecordingMetadata = (preset, settings)
+        currentRecordingMetadata = (preset, settings, currentLens)
 
         // Create unique filename with timestamp
         let formatter = DateFormatter()
@@ -338,8 +409,8 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
         }
 
         // Save metadata sidecar alongside the video
-        if let (preset, settings) = currentRecordingMetadata {
-            let metadata = RecordingMetadata(preset: preset, settings: settings)
+        if let (preset, settings, lens) = currentRecordingMetadata {
+            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens)
             saveMetadata(metadata, for: outputFileURL)
         }
         currentRecordingMetadata = nil
@@ -375,6 +446,7 @@ enum CameraError: LocalizedError {
     case cannotAddOutput
     case inputCreationFailed(String)
     case recordingFailed(String)
+    case cameraNotAvailable(String)
 
     var errorDescription: String? {
         switch self {
@@ -388,6 +460,8 @@ enum CameraError: LocalizedError {
             return "Failed to create camera input: \(message)"
         case .recordingFailed(let message):
             return "Recording failed: \(message)"
+        case .cameraNotAvailable(let lens):
+            return "The \(lens) camera is not available on this device."
         }
     }
 }

@@ -95,17 +95,19 @@ struct ViewfinderView: View {
                     .transition(.opacity.combined(with: .scale))
                 }
 
-                // Adaptive toolbar with thumbnail + record button + grid toggle
-                // Portrait: thumbnail left, record centered, grid right
-                // Landscape: thumbnail top, record centered, grid bottom
+                // Adaptive toolbar with thumbnail + lens selector + record button + grid toggle
+                // Portrait: lens selector above, thumbnail left, record centered, grid right
+                // Landscape: thumbnail top, lens selector, record centered, grid bottom
                 AdaptiveToolbar(
                     isLandscape: isLandscape,
                     thumbnail: lastThumbnail,
                     isRecording: viewModel.isRecording,
                     showMeteringGrid: viewModel.showMeteringGrid,
+                    selectedLens: viewModel.selectedLens,
                     onThumbnailTap: { showRecordingsList = true },
                     onRecordTap: { viewModel.toggleRecording() },
-                    onGridToggle: { viewModel.toggleMeteringGrid() }
+                    onGridToggle: { viewModel.toggleMeteringGrid() },
+                    onLensChange: { lens in viewModel.selectLens(lens) }
                 )
 
                 // Recording saved confirmation

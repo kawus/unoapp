@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 4 Complete (UX Polish - Animation & Haptics)
+**Status**: Iteration 5 Complete (Lens Selector)
 
 ---
 
@@ -74,6 +74,15 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Spring animations on selection state changes (presets, zones, grid toggle)
 - Consistent animation patterns across: PresetButton, ZoneCell, StepperButton, GridToggleButton, ThumbnailButton
 
+**Lens Selector (Iteration 5)**
+- Switch between ultrawide (0.5x) and wide (1x) camera lenses
+- Compact segmented selector in bottom toolbar (above record button in portrait, beside in landscape)
+- Preserves current preset and exposure settings when switching lenses
+- Disabled during recording (cannot switch cameras mid-record)
+- Lens choice saved to recording metadata (e.g., "0.5x • Floodlight • -1.0 EV")
+- Stabilization stays OFF for both lenses to maintain maximum FOV
+- Brief preview interruption (~0.2-0.5s) during lens switch is normal
+
 ### File Structure
 
 ```
@@ -86,6 +95,7 @@ unoapp/
 │   ├── Recording.swift          # Recording data model
 │   ├── RecordingMetadata.swift  # Settings metadata saved with recordings
 │   ├── CameraPreset.swift       # Lighting preset enum (Cloudy/Sunny/Floodlight/Manual)
+│   ├── CameraLens.swift         # Lens enum (ultraWide/wide) with AVFoundation device types
 │   ├── CameraSettings.swift     # Camera settings struct with preset defaults
 │   └── MeteringZone.swift       # 3x3 metering zone enum with AVFoundation coordinates
 ├── Services/
@@ -95,7 +105,8 @@ unoapp/
 │   └── CameraViewModel.swift    # State management
 └── Views/
     ├── ViewfinderView.swift     # Main camera UI
-    ├── AdaptiveToolbar.swift    # Orientation-aware toolbar (record, thumbnail, grid toggle)
+    ├── AdaptiveToolbar.swift    # Orientation-aware toolbar (record, thumbnail, lens, grid)
+    ├── LensSelectorView.swift   # Compact 0.5x/1x lens selector
     ├── PresetBar.swift          # Lighting preset buttons
     ├── ManualControlsView.swift # Stepper controls for manual mode
     ├── MeteringGridOverlay.swift # 3x3 tappable zone selection grid
@@ -190,7 +201,8 @@ Example metadata file:
   "meteringZone": "bottomCenter",
   "iso": 800,
   "whiteBalance": 4000,
-  "recordedAt": "2025-12-08T14:30:00Z"
+  "recordedAt": "2025-12-08T14:30:00Z",
+  "lens": "ultraWide"
 }
 ```
 
@@ -264,6 +276,20 @@ Example metadata file:
 - [ ] Thumbnail button scales on press
 - [ ] All animations feel responsive (not sluggish)
 - [ ] No animation conflicts or glitches in landscape
+
+**Lens Selector (Iteration 5)**
+- [ ] Lens selector visible above record button (portrait) or beside (landscape)
+- [ ] Tapping 0.5 selects ultrawide camera
+- [ ] Tapping 1 selects wide camera
+- [ ] Lens switch causes brief preview interruption (expected)
+- [ ] Current preset/exposure preserved after lens switch
+- [ ] Lens selector disabled (dimmed) during recording
+- [ ] Cannot switch lenses while recording
+- [ ] Lens selector has haptic feedback on selection
+- [ ] Lens selector buttons have press animation
+- [ ] Recording metadata shows lens info (e.g., "0.5x • Floodlight • -1.0 EV")
+- [ ] Playback view shows lens in settings header
+- [ ] Stabilization stays OFF for both lenses
 
 ---
 

@@ -9,16 +9,18 @@
 
 import SwiftUI
 
-/// Adaptive toolbar that positions record button centered with thumbnail and grid toggle on sides
+/// Adaptive toolbar that positions record button centered with thumbnail, lens selector, and grid toggle
 struct AdaptiveToolbar: View {
 
     let isLandscape: Bool
     let thumbnail: UIImage?
     let isRecording: Bool
     let showMeteringGrid: Bool
+    let selectedLens: CameraLens
     let onThumbnailTap: () -> Void
     let onRecordTap: () -> Void
     let onGridToggle: () -> Void
+    let onLensChange: (CameraLens) -> Void
 
     var body: some View {
         if isLandscape {
@@ -36,6 +38,17 @@ struct AdaptiveToolbar: View {
                         Spacer()
                         GridToggleButton(isActive: showMeteringGrid, action: onGridToggle)
                     }
+
+                    // Lens selector - offset above record button
+                    VStack {
+                        Spacer()
+                        LensSelectorView(
+                            selectedLens: selectedLens,
+                            isDisabled: isRecording,
+                            onSelect: onLensChange
+                        )
+                        .padding(.bottom, 90)
+                    }
                 }
                 .padding(.trailing, 30)
                 .padding(.vertical, 40)
@@ -45,6 +58,14 @@ struct AdaptiveToolbar: View {
             // Record button centered horizontally, thumbnail on left, grid on right
             VStack {
                 Spacer()
+                // Lens selector - above the main toolbar row
+                LensSelectorView(
+                    selectedLens: selectedLens,
+                    isDisabled: isRecording,
+                    onSelect: onLensChange
+                )
+                .padding(.bottom, 16)
+
                 ZStack {
                     // Record button - centered
                     RecordButton(isRecording: isRecording, action: onRecordTap)
@@ -102,9 +123,11 @@ struct GridToggleButton: View {
             thumbnail: nil,
             isRecording: false,
             showMeteringGrid: false,
+            selectedLens: .ultraWide,
             onThumbnailTap: {},
             onRecordTap: {},
-            onGridToggle: {}
+            onGridToggle: {},
+            onLensChange: { _ in }
         )
     }
 }
@@ -117,9 +140,11 @@ struct GridToggleButton: View {
             thumbnail: nil,
             isRecording: false,
             showMeteringGrid: true,
+            selectedLens: .wide,
             onThumbnailTap: {},
             onRecordTap: {},
-            onGridToggle: {}
+            onGridToggle: {},
+            onLensChange: { _ in }
         )
     }
 }
