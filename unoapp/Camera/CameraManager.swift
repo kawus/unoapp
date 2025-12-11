@@ -36,11 +36,14 @@ final class CameraManager: NSObject, ObservableObject {
     // MARK: - Recording Storage
 
     private var currentRecordingURL: URL?
-    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens)?
+    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens, maxFOV: Bool)?
     var onRecordingFinished: ((URL) -> Void)?
 
     /// Currently active camera lens
     private(set) var currentLens: CameraLens = .ultraWide
+
+    /// Whether Max FOV mode is enabled (disables distortion correction, selects max FOV format)
+    private(set) var maxFOVEnabled: Bool = false
 
     // MARK: - Initialization
 
@@ -70,6 +73,9 @@ final class CameraManager: NSObject, ObservableObject {
         }
 
         videoDevice = ultraWideCamera
+
+        // Log all available formats for debugging FOV options
+        logAvailableFormats(device: ultraWideCamera)
 
         // Step 2: Configure for 4K 30fps
         configure4K30fps(device: ultraWideCamera)
@@ -112,6 +118,34 @@ final class CameraManager: NSObject, ObservableObject {
         captureSession.commitConfiguration()
     }
 
+    /// Log all available formats for a device (for debugging FOV options)
+    private func logAvailableFormats(device: AVCaptureDevice) {
+        print("=== Available formats for \(device.localizedName) ===")
+        print("[Info] GDC Supported: \(device.isGeometricDistortionCorrectionSupported)")
+
+        // Group by resolution for cleaner output
+        var formatsByResolution: [String: [(format: AVCaptureDevice.Format, fov: Float)]] = [:]
+
+        for format in device.formats {
+            let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+            let key = "\(dims.width)x\(dims.height)"
+            let fov = format.videoFieldOfView
+
+            if formatsByResolution[key] == nil {
+                formatsByResolution[key] = []
+            }
+            formatsByResolution[key]?.append((format, fov))
+        }
+
+        // Print unique FOV values per resolution
+        for (resolution, formats) in formatsByResolution.sorted(by: { $0.key > $1.key }) {
+            let uniqueFOVs = Set(formats.map { $0.fov }).sorted(by: >)
+            let fovString = uniqueFOVs.map { String(format: "%.1f°", $0) }.joined(separator: ", ")
+            print("  \(resolution): FOV \(fovString)")
+        }
+        print("=== End formats ===")
+    }
+
     /// Configure the camera device for 4K 30fps output
     private func configure4K30fps(device: AVCaptureDevice) {
         // Find the best 4K 30fps format
@@ -135,6 +169,9 @@ final class CameraManager: NSObject, ObservableObject {
             // Device doesn't support 4K - use best available
             return
         }
+
+        let dimensions = CMVideoFormatDescriptionGetDimensions(bestFormat.formatDescription)
+        print("[Standard] Format: \(dimensions.width)x\(dimensions.height), FOV: \(bestFormat.videoFieldOfView)°")
 
         do {
             try device.lockForConfiguration()
@@ -302,6 +339,127 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Max FOV Mode
+
+    /// Enable or disable Maximum FOV mode
+    /// When enabled:
+    /// - Disables geometric distortion correction (critical for fisheye lenses)
+    /// - Uses inputPriority session preset for maximum control
+    /// - Selects format with highest field of view
+    /// - Parameter enabled: Whether to enable Max FOV mode
+    /// - Parameter lens: Current lens (needed if we need to reconfigure)
+    func setMaxFOVMode(_ enabled: Bool, lens: CameraLens) {
+        guard enabled != maxFOVEnabled else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+
+            self.captureSession.beginConfiguration()
+
+            // Update session preset based on mode
+            // inputPriority tells iOS "I'll choose the format myself"
+            if enabled {
+                self.captureSession.sessionPreset = .inputPriority
+            } else {
+                self.captureSession.sessionPreset = .high
+            }
+
+            // Reconfigure device with appropriate format
+            if let device = self.videoDevice {
+                if enabled {
+                    self.configureMaxFOVFormat(device: device)
+                } else {
+                    self.configure4K30fps(device: device)
+                }
+
+                // Apply/remove geometric distortion correction
+                self.setGeometricDistortionCorrection(device: device, enabled: !enabled)
+            }
+
+            // Ensure stabilization stays OFF regardless of mode
+            if let connection = self.videoOutput?.connection(with: .video) {
+                if connection.isVideoStabilizationSupported {
+                    connection.preferredVideoStabilizationMode = .off
+                }
+            }
+
+            self.captureSession.commitConfiguration()
+
+            DispatchQueue.main.async {
+                self.maxFOVEnabled = enabled
+            }
+        }
+    }
+
+    /// Configure device for maximum field of view
+    /// Prioritizes FOV over resolution - may result in less than 4K
+    private func configureMaxFOVFormat(device: AVCaptureDevice) {
+        // Find format with maximum field of view that supports at least 30fps
+        let targetFrameRate: Float64 = 30.0
+
+        let supportedFormats = device.formats.filter { format in
+            // Must support at least 30fps
+            format.videoSupportedFrameRateRanges.contains { range in
+                range.maxFrameRate >= targetFrameRate
+            }
+        }
+
+        // Find format with highest FOV
+        // Note: We check both raw FOV and GDC-corrected FOV
+        guard let bestFormat = supportedFormats.max(by: { format1, format2 in
+            format1.videoFieldOfView < format2.videoFieldOfView
+        }) else {
+            print("Could not find suitable max FOV format, using default")
+            return
+        }
+
+        let dimensions = CMVideoFormatDescriptionGetDimensions(bestFormat.formatDescription)
+        print("Max FOV format selected: \(dimensions.width)x\(dimensions.height), FOV: \(bestFormat.videoFieldOfView)°")
+
+        do {
+            try device.lockForConfiguration()
+            device.activeFormat = bestFormat
+
+            // Set frame rate to 30fps
+            let frameRateRange = bestFormat.videoSupportedFrameRateRanges.first { range in
+                range.maxFrameRate >= targetFrameRate
+            }
+
+            if frameRateRange != nil {
+                let duration = CMTime(value: 1, timescale: CMTimeScale(targetFrameRate))
+                device.activeVideoMinFrameDuration = duration
+                device.activeVideoMaxFrameDuration = duration
+            }
+
+            device.unlockForConfiguration()
+        } catch {
+            print("Could not configure max FOV format: \(error.localizedDescription)")
+        }
+    }
+
+    /// Enable or disable geometric distortion correction
+    /// Disabling GDC is CRITICAL for fisheye lenses - iOS normally "flattens" the edges
+    private func setGeometricDistortionCorrection(device: AVCaptureDevice, enabled: Bool) {
+        print("[GDC] Device: \(device.localizedName)")
+        print("[GDC] Supported: \(device.isGeometricDistortionCorrectionSupported)")
+
+        guard device.isGeometricDistortionCorrectionSupported else {
+            print("[GDC] ⚠️ NOT SUPPORTED on this camera - Max FOV toggle has no effect")
+            return
+        }
+
+        print("[GDC] Was: \(device.isGeometricDistortionCorrectionEnabled)")
+
+        do {
+            try device.lockForConfiguration()
+            device.isGeometricDistortionCorrectionEnabled = enabled
+            print("[GDC] Now: \(device.isGeometricDistortionCorrectionEnabled)")
+            device.unlockForConfiguration()
+        } catch {
+            print("[GDC] Error: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Recording
 
     /// Start recording video with current camera settings
@@ -335,7 +493,7 @@ final class CameraManager: NSObject, ObservableObject {
         }
 
         // Store metadata to save when recording completes
-        currentRecordingMetadata = (preset, settings, currentLens)
+        currentRecordingMetadata = (preset, settings, currentLens, maxFOVEnabled)
 
         // Create unique filename with timestamp
         let formatter = DateFormatter()
@@ -409,8 +567,8 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
         }
 
         // Save metadata sidecar alongside the video
-        if let (preset, settings, lens) = currentRecordingMetadata {
-            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens)
+        if let (preset, settings, lens, maxFOV) = currentRecordingMetadata {
+            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens, maxFOV: maxFOV)
             saveMetadata(metadata, for: outputFileURL)
         }
         currentRecordingMetadata = nil

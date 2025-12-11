@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 5 Complete (Lens Selector)
+**Status**: Iteration 6 Complete (Max FOV Mode)
 
 ---
 
@@ -83,6 +83,22 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Stabilization stays OFF for both lenses to maintain maximum FOV
 - Brief preview interruption (~0.2-0.5s) during lens switch is normal
 
+**Max FOV Mode (Iteration 6)**
+- Toggle in preset bar (orange "FOV" button) to maximize field of view for external fisheye lenses
+- **Disables Geometric Distortion Correction (GDC)** - iOS normally "flattens" lens edges, removing fisheye FOV
+- Uses `inputPriority` session preset for maximum format control
+- Selects camera format with highest `videoFieldOfView` value
+- May result in non-4K resolution when prioritizing FOV over quality
+- Disabled during recording (cannot toggle mid-record)
+- Max FOV state saved to recording metadata (e.g., "0.5x • Floodlight • -1.0 EV • MaxFOV")
+- Expected to unlock ~15-25° additional FOV with T-Series/Moment fisheye lenses
+- Comprehensive debug logging: prints available formats, GDC support, and selected format on startup
+
+**UI Polish (Iteration 6.1)**
+- Compact preset bar: smaller buttons fit on one line with FOV toggle
+- Fixed landscape lens selector position: now appears LEFT of record button (was incorrectly on right)
+- Portrait lens selector remains above record button
+
 ### File Structure
 
 ```
@@ -122,13 +138,14 @@ Note: Camera/photo permissions are in project build settings (INFOPLIST_KEY_*), 
 
 ## Next Steps
 
-### Iteration 4: Polish & Field Testing
+### Iteration 7: Field Testing & Refinement
 
-- Field testing with Moment fisheye lens
+- Field testing with T-Series/Moment fisheye lens (compare Max FOV ON vs OFF)
+- Measure actual FOV achieved (target: 185-200° with Max FOV enabled)
 - Tune preset values based on real conditions (cloudy UK days, stadium floodlights)
 - Add full ISO/WB control if exposure bias alone isn't sufficient
 - Edge case handling (interruptions, storage full, low battery)
-- Haptic feedback on record start/stop
+- Consider 4:3 capture mode for maximum vertical FOV
 - Recording file naming/renaming
 
 ---
@@ -167,6 +184,40 @@ Current defaults (to be tuned during field testing):
 
 **Note:** Currently only exposure bias and metering zone are applied. ISO and WB values are stored for future implementation if needed.
 
+### Max FOV Mode Technical Notes
+
+**Why iOS limits fisheye FOV by default:**
+1. **Geometric Distortion Correction (GDC)** - iOS "flattens" lens edges to make images look natural
+2. **Session preset cropping** - `.high` preset applies Apple's processing pipeline
+3. **Format selection** - Default doesn't prioritize maximum FOV formats
+4. **Video stabilization** - Crops frame (we already disable this)
+
+**What Max FOV mode does:**
+
+```swift
+// 1. Disable geometric distortion correction
+device.isGeometricDistortionCorrectionEnabled = false
+
+// 2. Use inputPriority for maximum control
+session.sessionPreset = .inputPriority
+
+// 3. Select format with highest videoFieldOfView
+let bestFormat = device.formats.max {
+    $0.videoFieldOfView < $1.videoFieldOfView
+}
+device.activeFormat = bestFormat
+```
+
+**Expected results:**
+- Standard mode: ~170° with T-Series fisheye
+- Max FOV mode: ~185-195° (hardware limit)
+- Perfect 200° not achievable due to unavoidable 16:9 crop + sensor readout limitations
+
+**Trade-offs:**
+- May result in lower resolution (non-4K)
+- Raw fisheye distortion visible (no correction applied)
+- Ideal for external fisheye lenses; may look unusual without one
+
 ### Metering Zone Technical Notes
 
 Uses AVFoundation `exposurePointOfInterest` API:
@@ -202,7 +253,8 @@ Example metadata file:
   "iso": 800,
   "whiteBalance": 4000,
   "recordedAt": "2025-12-08T14:30:00Z",
-  "lens": "ultraWide"
+  "lens": "ultraWide",
+  "maxFOV": true
 }
 ```
 
@@ -291,6 +343,19 @@ Example metadata file:
 - [ ] Playback view shows lens in settings header
 - [ ] Stabilization stays OFF for both lenses
 
+**Max FOV Mode (Iteration 6)**
+- [ ] FOV toggle visible in preset bar (orange when enabled)
+- [ ] FOV toggle disabled (dimmed) during recording
+- [ ] Toggling FOV causes brief preview reconfiguration (expected)
+- [ ] FOV toggle has haptic feedback
+- [ ] FOV toggle has press animation
+- [ ] Console prints format info when Max FOV enabled (for debugging)
+- [ ] Recording metadata shows "MaxFOV" when enabled
+- [ ] Playback view shows "Max FOV: On" in settings
+- [ ] With fisheye lens: visible FOV increase when Max FOV enabled
+- [ ] Without fisheye: more distortion visible at edges (expected)
+- [ ] Stabilization stays OFF in both modes
+
 ---
 
 ## References
@@ -299,3 +364,5 @@ Example metadata file:
 - [AVCam Sample Project](https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app)
 - [Video Stabilization API](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/preferredvideostabilizationmode)
 - [Exposure Point of Interest](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposurepointofinterest)
+- [Geometric Distortion Correction](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isgeometricdistortioncorrectionenabled)
+- [Video Field of View](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videofieldofview)

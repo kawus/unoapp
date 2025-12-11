@@ -26,6 +26,7 @@ struct AdaptiveToolbar: View {
         if isLandscape {
             // Landscape: controls on right edge
             // Record button centered vertically, thumbnail at top, grid at bottom
+            // Lens selector to the LEFT of record button (which means "below" in the VStack due to rotation)
             HStack {
                 Spacer()
                 ZStack {
@@ -39,15 +40,15 @@ struct AdaptiveToolbar: View {
                         GridToggleButton(isActive: showMeteringGrid, action: onGridToggle)
                     }
 
-                    // Lens selector - offset above record button
+                    // Lens selector - offset BELOW record button (appears LEFT in landscape)
                     VStack {
-                        Spacer()
                         LensSelectorView(
                             selectedLens: selectedLens,
                             isDisabled: isRecording,
                             onSelect: onLensChange
                         )
-                        .padding(.bottom, 90)
+                        .padding(.top, 90)
+                        Spacer()
                     }
                 }
                 .padding(.trailing, 30)

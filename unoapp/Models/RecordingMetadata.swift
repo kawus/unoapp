@@ -17,10 +17,11 @@ struct RecordingMetadata: Codable, Equatable {
     let whiteBalance: Int           // For display (stored but not all applied yet)
     let recordedAt: Date            // Timestamp for verification
     let lens: String?               // "ultraWide" or "wide" (optional for backward compatibility)
+    let maxFOV: Bool?               // Whether Max FOV mode was enabled (optional for backward compatibility)
 
     // MARK: - Convenience Initializer
 
-    init(preset: CameraPreset, settings: CameraSettings, lens: CameraLens? = nil, recordedAt: Date = Date()) {
+    init(preset: CameraPreset, settings: CameraSettings, lens: CameraLens? = nil, maxFOV: Bool = false, recordedAt: Date = Date()) {
         self.preset = preset.rawValue
         self.exposureBias = settings.exposureBias
         self.meteringZone = settings.meteringZone.stringValue
@@ -28,6 +29,7 @@ struct RecordingMetadata: Codable, Equatable {
         self.whiteBalance = settings.whiteBalance
         self.recordedAt = recordedAt
         self.lens = lens?.rawValue
+        self.maxFOV = maxFOV
     }
 
     // MARK: - Display Helpers
@@ -38,7 +40,7 @@ struct RecordingMetadata: Codable, Equatable {
         return lens == "ultraWide" ? "0.5x" : "1x"
     }
 
-    /// Summary line for list view: "0.5x • Floodlight • -1.0 EV"
+    /// Summary line for list view: "0.5x • Floodlight • -1.0 EV • MaxFOV"
     var summaryText: String {
         let presetName = preset.capitalized
         let evText: String
@@ -50,10 +52,16 @@ struct RecordingMetadata: Codable, Equatable {
             evText = "EV \(String(format: "%.1f", exposureBias))"
         }
 
+        var parts: [String] = []
         if let lensLabel = lensLabel {
-            return "\(lensLabel) • \(presetName) • \(evText)"
+            parts.append(lensLabel)
         }
-        return "\(presetName) • \(evText)"
+        parts.append(presetName)
+        parts.append(evText)
+        if maxFOV == true {
+            parts.append("MaxFOV")
+        }
+        return parts.joined(separator: " • ")
     }
 
     /// Full details for playback view
@@ -67,6 +75,11 @@ struct RecordingMetadata: Codable, Equatable {
         // Add lens if available
         if let lensLabel = lensLabel {
             lines.append(("Lens", lensLabel))
+        }
+
+        // Add Max FOV mode if enabled
+        if maxFOV == true {
+            lines.append(("Max FOV", "On"))
         }
 
         lines.append(contentsOf: [

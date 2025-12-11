@@ -60,11 +60,16 @@ struct ViewfinderView: View {
 
                 // Main UI overlay
                 VStack(spacing: 0) {
-                    // Preset bar at top (always visible)
+                    // Preset bar at top (always visible) with Max FOV toggle
                     PresetBar(
                         selectedPreset: $viewModel.selectedPreset,
+                        maxFOVEnabled: viewModel.maxFOVEnabled,
+                        isRecording: viewModel.isRecording,
                         onPresetSelected: { preset in
                             viewModel.selectPreset(preset)
+                        },
+                        onMaxFOVToggle: {
+                            viewModel.toggleMaxFOV()
                         }
                     )
 

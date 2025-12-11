@@ -54,6 +54,10 @@ final class CameraViewModel: ObservableObject {
     /// Currently selected camera lens
     @Published var selectedLens: CameraLens = .ultraWide
 
+    /// Max FOV mode - disables distortion correction and selects maximum FOV format
+    /// Use this when shooting with external fisheye lenses to capture the widest possible view
+    @Published var maxFOVEnabled: Bool = false
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -280,6 +284,17 @@ final class CameraViewModel: ObservableObject {
 
         // Reapply current settings after lens switch
         applyCurrentSettings()
+    }
+
+    // MARK: - Max FOV Mode
+
+    /// Toggle maximum FOV mode on/off
+    /// When enabled: disables distortion correction, selects max FOV format
+    /// When disabled: uses standard iOS camera processing
+    func toggleMaxFOV() {
+        guard !isRecording else { return }  // Can't change during recording
+        maxFOVEnabled.toggle()
+        cameraManager.setMaxFOVMode(maxFOVEnabled, lens: selectedLens)
     }
 
     // MARK: - Cleanup
