@@ -99,6 +99,13 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Fixed landscape lens selector position: now appears LEFT of record button (was incorrectly on right)
 - Portrait lens selector remains above record button
 
+**Bluetooth Remote Support (Iteration 6.2)**
+- Volume buttons now start/stop recording (instead of changing volume)
+- Bluetooth camera remotes work for hands-free recording
+- iPhone 16 Camera Control button supported
+- Action button supported
+- Uses Apple's `.onCameraCaptureEvent` API (iOS 17.2+)
+
 ### File Structure
 
 ```

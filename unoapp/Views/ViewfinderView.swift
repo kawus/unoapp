@@ -10,6 +10,7 @@
 //
 
 import SwiftUI
+import AVKit
 
 /// Main viewfinder screen showing camera preview and recording controls
 /// Design principles (iOS 26 Liquid Glass HIG):
@@ -125,6 +126,12 @@ struct ViewfinderView: View {
                 if let error = viewModel.errorMessage {
                     ErrorBanner(message: error)
                         .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            // Handle volume buttons / Bluetooth remote / Camera Control for recording
+            .onCameraCaptureEvent { event in
+                if event.phase == .ended {
+                    viewModel.toggleRecording()
                 }
             }
             .animation(.easeInOut(duration: 0.3), value: viewModel.isRecording)
