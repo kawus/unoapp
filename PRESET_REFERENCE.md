@@ -73,6 +73,36 @@ The Floodlight preset defaults to **Bottom-Center** metering because:
 
 ---
 
+## FOV Maximization Settings
+
+For external fisheye lenses (T-Series/Moment), use these settings to capture maximum field of view:
+
+| Setting | Location | Recommended |
+|---------|----------|-------------|
+| **Max FOV** | Preset bar (orange "FOV" button) | ON |
+| **Aspect Ratio** | Preset bar (blue "4:3" button) | 4:3 |
+| **Lens** | Bottom toolbar | Depends on fisheye adapter |
+
+### Why These Settings?
+
+- **Max FOV ON**: Disables iOS geometric distortion correction (GDC) which crops fisheye edges
+- **4:3 Aspect**: Captures more of the circular fisheye projection than 16:9
+- **Lens Choice**: T-Series fisheye is designed for 1x Wide camera (better sensor)
+
+### Debug Overlay
+
+**Triple-tap the camera preview** to show/hide debug info:
+
+- FOV (degrees) - aim for highest value
+- GDC status - should show "Off" for max FOV
+- Zoom factor - should be 1.0x (no digital crop)
+- Resolution and aspect ratio
+- Stabilization - should be "Off"
+
+Green highlights = good for FOV. Red highlights = reducing FOV.
+
+---
+
 ## Field Testing Notes
 
 Use this section to record what works during actual filming:
