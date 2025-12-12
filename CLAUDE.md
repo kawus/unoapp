@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 6 Complete (Max FOV Mode)
+**Status**: Iteration 7 Complete (Debug Overlay + Aspect Ratio Toggle)
 
 ---
 
@@ -106,6 +106,27 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Action button supported
 - Uses Apple's `.onCameraCaptureEvent` API (iOS 17.2+)
 
+**Debug Overlay (Iteration 7.1)**
+- Triple-tap camera preview to show/hide debug overlay
+- Displays real-time camera configuration: FOV, resolution, aspect ratio, FPS
+- Shows GDC status, stabilization mode, session preset, lens, zoom factor
+- Green highlighting for settings optimized for FOV (GDC off, stabilization off, Max FOV on)
+- Adaptive positioning: right side in portrait, left side in landscape (avoids record button)
+- Essential for field testing without Xcode connected
+
+**Aspect Ratio Toggle (Iteration 7.2)**
+- Toggle in preset bar (blue "4:3" button when active) to switch between 16:9 and 4:3
+- **4:3 captures more of the circular fisheye projection** than 16:9 (closer to square = more of circle)
+- Format selection respects aspect ratio choice
+- Disabled during recording (cannot toggle mid-record)
+- Aspect ratio saved to recording metadata
+- 4:3 videos will have letterboxing on 16:9 screens (expected)
+
+**Frame-Cropping Optimization (Iteration 7.3)**
+- Consolidated `disableAllFrameCroppingFeatures()` method for Max FOV mode
+- Disables: GDC, Center Stage (auto-framing), ensures zoom = 1.0
+- All cropping features disabled when Max FOV is enabled
+
 ### File Structure
 
 ```
@@ -120,7 +141,9 @@ unoapp/
 │   ├── CameraPreset.swift       # Lighting preset enum (Cloudy/Sunny/Floodlight/Manual)
 │   ├── CameraLens.swift         # Lens enum (ultraWide/wide) with AVFoundation device types
 │   ├── CameraSettings.swift     # Camera settings struct with preset defaults
-│   └── MeteringZone.swift       # 3x3 metering zone enum with AVFoundation coordinates
+│   ├── MeteringZone.swift       # 3x3 metering zone enum with AVFoundation coordinates
+│   ├── AspectRatio.swift        # Aspect ratio enum (16:9/4:3) for video capture
+│   └── CameraDebugInfo.swift    # Debug info struct for on-screen overlay
 ├── Services/
 │   ├── OrientationManager.swift # Device orientation tracking
 │   └── RecordingStorage.swift   # File scanning, thumbnails, export
@@ -130,9 +153,10 @@ unoapp/
     ├── ViewfinderView.swift     # Main camera UI
     ├── AdaptiveToolbar.swift    # Orientation-aware toolbar (record, thumbnail, lens, grid)
     ├── LensSelectorView.swift   # Compact 0.5x/1x lens selector
-    ├── PresetBar.swift          # Lighting preset buttons
+    ├── PresetBar.swift          # Lighting preset + aspect ratio + FOV buttons
     ├── ManualControlsView.swift # Stepper controls for manual mode
     ├── MeteringGridOverlay.swift # 3x3 tappable zone selection grid
+    ├── DebugOverlayView.swift   # On-screen debug info (triple-tap to toggle)
     ├── RecordingsListView.swift # Recordings list with thumbnails
     ├── PlaybackView.swift       # Video playback + export
     ├── ThumbnailButton.swift    # Thumbnail button component
@@ -145,14 +169,15 @@ Note: Camera/photo permissions are in project build settings (INFOPLIST_KEY_*), 
 
 ## Next Steps
 
-### Iteration 7: Field Testing & Refinement
+### Iteration 8: Field Testing & Refinement
 
-- Field testing with T-Series/Moment fisheye lens (compare Max FOV ON vs OFF)
-- Measure actual FOV achieved (target: 185-200° with Max FOV enabled)
+- Field testing with T-Series/Moment fisheye lens on 1x Wide camera
+- Compare: Max FOV ON + 4:3 vs Max FOV OFF + 16:9
+- Use debug overlay to verify GDC off, zoom 1.0, correct format selected
+- Measure actual FOV achieved (target: 170-200° with Max FOV + 4:3)
 - Tune preset values based on real conditions (cloudy UK days, stadium floodlights)
 - Add full ISO/WB control if exposure bias alone isn't sufficient
 - Edge case handling (interruptions, storage full, low battery)
-- Consider 4:3 capture mode for maximum vertical FOV
 - Recording file naming/renaming
 
 ---

@@ -24,6 +24,7 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var isRecording = false
     @Published var recordingDuration: TimeInterval = 0
     @Published var error: CameraError?
+    @Published var debugInfo: CameraDebugInfo?
 
     // MARK: - Camera Session
 
@@ -36,7 +37,7 @@ final class CameraManager: NSObject, ObservableObject {
     // MARK: - Recording Storage
 
     private var currentRecordingURL: URL?
-    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens, maxFOV: Bool)?
+    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens, maxFOV: Bool, aspectRatio: AspectRatio)?
     var onRecordingFinished: ((URL) -> Void)?
 
     /// Currently active camera lens
@@ -44,6 +45,9 @@ final class CameraManager: NSObject, ObservableObject {
 
     /// Whether Max FOV mode is enabled (disables distortion correction, selects max FOV format)
     private(set) var maxFOVEnabled: Bool = false
+
+    /// Current aspect ratio for video capture
+    private(set) var currentAspectRatio: AspectRatio = .sixteenByNine
 
     // MARK: - Initialization
 
@@ -116,6 +120,9 @@ final class CameraManager: NSObject, ObservableObject {
         }
 
         captureSession.commitConfiguration()
+
+        // Update debug info after setup
+        updateDebugInfo()
     }
 
     /// Log all available formats for a device (for debugging FOV options)
@@ -336,6 +343,9 @@ final class CameraManager: NSObject, ObservableObject {
             }
 
             self.captureSession.commitConfiguration()
+
+            // Update debug info after lens switch
+            self.updateDebugInfo()
         }
     }
 
@@ -368,12 +378,13 @@ final class CameraManager: NSObject, ObservableObject {
             if let device = self.videoDevice {
                 if enabled {
                     self.configureMaxFOVFormat(device: device)
+                    // Disable ALL frame-cropping features for maximum FOV
+                    self.disableAllFrameCroppingFeatures(device: device)
                 } else {
                     self.configure4K30fps(device: device)
+                    // Re-enable GDC for standard mode (gives cleaner image)
+                    self.setGeometricDistortionCorrection(device: device, enabled: true)
                 }
-
-                // Apply/remove geometric distortion correction
-                self.setGeometricDistortionCorrection(device: device, enabled: !enabled)
             }
 
             // Ensure stabilization stays OFF regardless of mode
@@ -385,6 +396,9 @@ final class CameraManager: NSObject, ObservableObject {
 
             self.captureSession.commitConfiguration()
 
+            // Update debug info after Max FOV toggle
+            self.updateDebugInfo()
+
             DispatchQueue.main.async {
                 self.maxFOVEnabled = enabled
             }
@@ -393,28 +407,161 @@ final class CameraManager: NSObject, ObservableObject {
 
     /// Configure device for maximum field of view
     /// Prioritizes FOV over resolution - may result in less than 4K
+    /// Filters by current aspect ratio (4:3 captures more of circular fisheye projection)
     private func configureMaxFOVFormat(device: AVCaptureDevice) {
-        // Find format with maximum field of view that supports at least 30fps
         let targetFrameRate: Float64 = 30.0
 
-        let supportedFormats = device.formats.filter { format in
-            // Must support at least 30fps
+        // Filter formats that support 30fps
+        var supportedFormats = device.formats.filter { format in
             format.videoSupportedFrameRateRanges.contains { range in
                 range.maxFrameRate >= targetFrameRate
             }
         }
 
-        // Find format with highest FOV
-        // Note: We check both raw FOV and GDC-corrected FOV
-        guard let bestFormat = supportedFormats.max(by: { format1, format2 in
-            format1.videoFieldOfView < format2.videoFieldOfView
-        }) else {
-            print("Could not find suitable max FOV format, using default")
+        // Filter by aspect ratio if not 16:9 (16:9 is the default, most formats support it)
+        if currentAspectRatio == .fourByThree {
+            let filtered = supportedFormats.filter { format in
+                let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                let ratio = Float(dims.width) / Float(dims.height)
+                // 4:3 = 1.333... Allow small tolerance
+                return abs(ratio - 1.333) < 0.05
+            }
+            if !filtered.isEmpty {
+                supportedFormats = filtered
+                print("[MaxFOV] Filtering for 4:3 formats, found \(filtered.count) options")
+            } else {
+                print("[MaxFOV] No 4:3 formats found, using best available")
+            }
+        }
+
+        // Sort by: FOV (highest first), then resolution (highest first for tie-breaking)
+        let sortedFormats = supportedFormats.sorted { f1, f2 in
+            if f1.videoFieldOfView != f2.videoFieldOfView {
+                return f1.videoFieldOfView > f2.videoFieldOfView
+            }
+            let dims1 = CMVideoFormatDescriptionGetDimensions(f1.formatDescription)
+            let dims2 = CMVideoFormatDescriptionGetDimensions(f2.formatDescription)
+            return (dims1.width * dims1.height) > (dims2.width * dims2.height)
+        }
+
+        guard let bestFormat = sortedFormats.first else {
+            print("[MaxFOV] No suitable format found, using default")
             return
         }
 
         let dimensions = CMVideoFormatDescriptionGetDimensions(bestFormat.formatDescription)
-        print("Max FOV format selected: \(dimensions.width)x\(dimensions.height), FOV: \(bestFormat.videoFieldOfView)°")
+        let ratio = Float(dimensions.width) / Float(dimensions.height)
+        print("[MaxFOV] Selected: \(dimensions.width)x\(dimensions.height), FOV: \(bestFormat.videoFieldOfView)°, Ratio: \(String(format: "%.2f", ratio))")
+
+        do {
+            try device.lockForConfiguration()
+            device.activeFormat = bestFormat
+
+            // CRITICAL: Ensure zoom is at 1.0 to prevent any digital cropping
+            device.videoZoomFactor = 1.0
+
+            // Set frame rate to 30fps
+            let frameRateRange = bestFormat.videoSupportedFrameRateRanges.first { range in
+                range.maxFrameRate >= targetFrameRate
+            }
+
+            if frameRateRange != nil {
+                let duration = CMTime(value: 1, timescale: CMTimeScale(targetFrameRate))
+                device.activeVideoMinFrameDuration = duration
+                device.activeVideoMaxFrameDuration = duration
+            }
+
+            device.unlockForConfiguration()
+        } catch {
+            print("[MaxFOV] Config error: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Aspect Ratio
+
+    /// Set the aspect ratio for video capture
+    /// - Parameter ratio: The desired aspect ratio
+    /// - Note: Cannot be called while recording. Reconfigures camera format.
+    func setAspectRatio(_ ratio: AspectRatio) {
+        guard ratio != currentAspectRatio else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+
+            self.captureSession.beginConfiguration()
+
+            // Update aspect ratio first so format selection uses it
+            let oldRatio = self.currentAspectRatio
+            self.currentAspectRatio = ratio
+
+            // Reconfigure device with new aspect ratio
+            if let device = self.videoDevice {
+                if self.maxFOVEnabled {
+                    self.configureMaxFOVFormat(device: device)
+                } else {
+                    // For standard mode, also respect aspect ratio
+                    self.configureStandardFormat(device: device)
+                }
+            }
+
+            self.captureSession.commitConfiguration()
+
+            // Update debug info after aspect ratio change
+            self.updateDebugInfo()
+
+            DispatchQueue.main.async {
+                print("[AspectRatio] Changed from \(oldRatio.label) to \(ratio.label)")
+            }
+        }
+    }
+
+    /// Configure standard format (non-Max FOV) with aspect ratio support
+    private func configureStandardFormat(device: AVCaptureDevice) {
+        let targetFrameRate: Float64 = 30.0
+
+        // Start with formats that support 30fps
+        var supportedFormats = device.formats.filter { format in
+            format.videoSupportedFrameRateRanges.contains { range in
+                range.maxFrameRate >= targetFrameRate
+            }
+        }
+
+        // Filter by aspect ratio
+        if currentAspectRatio == .fourByThree {
+            let filtered = supportedFormats.filter { format in
+                let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                let ratio = Float(dims.width) / Float(dims.height)
+                return abs(ratio - 1.333) < 0.05
+            }
+            if !filtered.isEmpty {
+                supportedFormats = filtered
+            }
+        } else {
+            // 16:9 formats
+            let filtered = supportedFormats.filter { format in
+                let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                let ratio = Float(dims.width) / Float(dims.height)
+                return abs(ratio - 1.778) < 0.05  // 16:9 = 1.777...
+            }
+            if !filtered.isEmpty {
+                supportedFormats = filtered
+            }
+        }
+
+        // Sort by resolution (highest first)
+        let sortedFormats = supportedFormats.sorted { f1, f2 in
+            let dims1 = CMVideoFormatDescriptionGetDimensions(f1.formatDescription)
+            let dims2 = CMVideoFormatDescriptionGetDimensions(f2.formatDescription)
+            return (dims1.width * dims1.height) > (dims2.width * dims2.height)
+        }
+
+        guard let bestFormat = sortedFormats.first else {
+            print("[Standard] No suitable format found")
+            return
+        }
+
+        let dimensions = CMVideoFormatDescriptionGetDimensions(bestFormat.formatDescription)
+        print("[Standard] Format: \(dimensions.width)x\(dimensions.height), FOV: \(bestFormat.videoFieldOfView)°")
 
         do {
             try device.lockForConfiguration()
@@ -433,7 +580,7 @@ final class CameraManager: NSObject, ObservableObject {
 
             device.unlockForConfiguration()
         } catch {
-            print("Could not configure max FOV format: \(error.localizedDescription)")
+            print("[Standard] Config error: \(error.localizedDescription)")
         }
     }
 
@@ -457,6 +604,121 @@ final class CameraManager: NSObject, ObservableObject {
             device.unlockForConfiguration()
         } catch {
             print("[GDC] Error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Disable all features that crop the frame for maximum FOV
+    /// Called when Max FOV mode is enabled to ensure nothing reduces the captured area
+    private func disableAllFrameCroppingFeatures(device: AVCaptureDevice) {
+        // 1. Disable Geometric Distortion Correction (most important for fisheye)
+        setGeometricDistortionCorrection(device: device, enabled: false)
+
+        // 2. Disable Center Stage (auto-framing that crops to follow subjects)
+        // Center Stage is a class-level setting, not per-device
+        if AVCaptureDevice.isCenterStageEnabled {
+            print("[FOV] Disabling Center Stage")
+            AVCaptureDevice.centerStageControlMode = .user
+            AVCaptureDevice.isCenterStageEnabled = false
+        }
+
+        // 3. Ensure zoom is at minimum (no digital cropping)
+        do {
+            try device.lockForConfiguration()
+            if device.videoZoomFactor != 1.0 {
+                print("[FOV] Resetting zoom from \(device.videoZoomFactor) to 1.0")
+                device.videoZoomFactor = 1.0
+            }
+            device.unlockForConfiguration()
+        } catch {
+            print("[FOV] Error setting zoom: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Debug Info
+
+    /// Update debug info for on-screen overlay
+    /// Call this after any camera configuration change
+    func updateDebugInfo() {
+        guard let device = videoDevice else { return }
+
+        let format = device.activeFormat
+        let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+
+        // Calculate aspect ratio
+        let aspectRatio = calculateAspectRatio(width: Int(dims.width), height: Int(dims.height))
+
+        // Get stabilization mode from output connection
+        let stabMode: String
+        if let conn = videoOutput?.connection(with: .video) {
+            stabMode = describeStabilizationMode(conn.activeVideoStabilizationMode)
+        } else {
+            stabMode = "unknown"
+        }
+
+        // Calculate actual frame rate
+        let frameRate = Float(1.0 / CMTimeGetSeconds(device.activeVideoMinFrameDuration))
+
+        let info = CameraDebugInfo(
+            resolution: "\(dims.width)x\(dims.height)",
+            videoFieldOfView: format.videoFieldOfView,
+            frameRate: frameRate,
+            aspectRatio: aspectRatio,
+            gdcEnabled: device.isGeometricDistortionCorrectionSupported ?
+                        device.isGeometricDistortionCorrectionEnabled : false,
+            gdcSupported: device.isGeometricDistortionCorrectionSupported,
+            stabilizationMode: stabMode,
+            sessionPreset: describeSessionPreset(captureSession.sessionPreset),
+            lens: currentLens == .wide ? "Wide (1x)" : "Ultra Wide (0.5x)",
+            videoZoomFactor: Float(device.videoZoomFactor),
+            maxFOVEnabled: maxFOVEnabled
+        )
+
+        DispatchQueue.main.async {
+            self.debugInfo = info
+        }
+    }
+
+    /// Calculate human-readable aspect ratio from dimensions
+    private func calculateAspectRatio(width: Int, height: Int) -> String {
+        func gcd(_ a: Int, _ b: Int) -> Int {
+            b == 0 ? a : gcd(b, a % b)
+        }
+        let divisor = gcd(width, height)
+        let w = width / divisor
+        let h = height / divisor
+
+        // Simplify common ratios
+        if w == 16 && h == 9 { return "16:9" }
+        if w == 4 && h == 3 { return "4:3" }
+        if w == 3 && h == 2 { return "3:2" }
+        return "\(w):\(h)"
+    }
+
+    /// Convert stabilization mode to readable string
+    private func describeStabilizationMode(_ mode: AVCaptureVideoStabilizationMode) -> String {
+        switch mode {
+        case .off: return "off"
+        case .standard: return "standard"
+        case .cinematic: return "cinematic"
+        case .cinematicExtended: return "cinematicExt"
+        case .auto: return "auto"
+        case .previewOptimized: return "preview"
+        @unknown default: return "unknown"
+        }
+    }
+
+    /// Convert session preset to readable string
+    private func describeSessionPreset(_ preset: AVCaptureSession.Preset) -> String {
+        switch preset {
+        case .inputPriority: return "inputPriority"
+        case .high: return "high"
+        case .medium: return "medium"
+        case .low: return "low"
+        case .photo: return "photo"
+        case .hd4K3840x2160: return "4K"
+        case .hd1920x1080: return "1080p"
+        case .hd1280x720: return "720p"
+        default: return "other"
         }
     }
 
@@ -493,7 +755,7 @@ final class CameraManager: NSObject, ObservableObject {
         }
 
         // Store metadata to save when recording completes
-        currentRecordingMetadata = (preset, settings, currentLens, maxFOVEnabled)
+        currentRecordingMetadata = (preset, settings, currentLens, maxFOVEnabled, currentAspectRatio)
 
         // Create unique filename with timestamp
         let formatter = DateFormatter()
@@ -567,8 +829,8 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
         }
 
         // Save metadata sidecar alongside the video
-        if let (preset, settings, lens, maxFOV) = currentRecordingMetadata {
-            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens, maxFOV: maxFOV)
+        if let (preset, settings, lens, maxFOV, aspectRatio) = currentRecordingMetadata {
+            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens, maxFOV: maxFOV, aspectRatio: aspectRatio)
             saveMetadata(metadata, for: outputFileURL)
         }
         currentRecordingMetadata = nil

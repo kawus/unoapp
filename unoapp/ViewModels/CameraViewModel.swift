@@ -58,6 +58,16 @@ final class CameraViewModel: ObservableObject {
     /// Use this when shooting with external fisheye lenses to capture the widest possible view
     @Published var maxFOVEnabled: Bool = false
 
+    /// Current aspect ratio for video capture
+    /// 4:3 captures more of the circular fisheye projection than 16:9
+    @Published var aspectRatio: AspectRatio = .sixteenByNine
+
+    /// Whether the debug overlay is visible (toggle with triple-tap)
+    @Published var showDebugOverlay: Bool = false
+
+    /// Current camera debug info for overlay display
+    @Published var debugInfo: CameraDebugInfo?
+
     // MARK: - Camera Manager
 
     let cameraManager = CameraManager()
@@ -102,6 +112,11 @@ final class CameraViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .compactMap { $0?.errorDescription }
             .assign(to: &$errorMessage)
+
+        // Forward debug info for overlay
+        cameraManager.$debugInfo
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$debugInfo)
     }
 
     // MARK: - Permission Handling
@@ -295,6 +310,23 @@ final class CameraViewModel: ObservableObject {
         guard !isRecording else { return }  // Can't change during recording
         maxFOVEnabled.toggle()
         cameraManager.setMaxFOVMode(maxFOVEnabled, lens: selectedLens)
+    }
+
+    // MARK: - Aspect Ratio
+
+    /// Toggle aspect ratio between 16:9 and 4:3
+    /// 4:3 captures more of the circular fisheye projection
+    func toggleAspectRatio() {
+        guard !isRecording else { return }  // Can't change during recording
+        aspectRatio = aspectRatio == .sixteenByNine ? .fourByThree : .sixteenByNine
+        cameraManager.setAspectRatio(aspectRatio)
+    }
+
+    // MARK: - Debug Overlay
+
+    /// Toggle debug overlay visibility (triggered by triple-tap)
+    func toggleDebugOverlay() {
+        showDebugOverlay.toggle()
     }
 
     // MARK: - Cleanup

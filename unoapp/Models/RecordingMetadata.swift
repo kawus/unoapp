@@ -18,10 +18,11 @@ struct RecordingMetadata: Codable, Equatable {
     let recordedAt: Date            // Timestamp for verification
     let lens: String?               // "ultraWide" or "wide" (optional for backward compatibility)
     let maxFOV: Bool?               // Whether Max FOV mode was enabled (optional for backward compatibility)
+    let aspectRatio: String?        // "16:9" or "4:3" (optional for backward compatibility)
 
     // MARK: - Convenience Initializer
 
-    init(preset: CameraPreset, settings: CameraSettings, lens: CameraLens? = nil, maxFOV: Bool = false, recordedAt: Date = Date()) {
+    init(preset: CameraPreset, settings: CameraSettings, lens: CameraLens? = nil, maxFOV: Bool = false, aspectRatio: AspectRatio = .sixteenByNine, recordedAt: Date = Date()) {
         self.preset = preset.rawValue
         self.exposureBias = settings.exposureBias
         self.meteringZone = settings.meteringZone.stringValue
@@ -30,6 +31,7 @@ struct RecordingMetadata: Codable, Equatable {
         self.recordedAt = recordedAt
         self.lens = lens?.rawValue
         self.maxFOV = maxFOV
+        self.aspectRatio = aspectRatio.rawValue
     }
 
     // MARK: - Display Helpers
@@ -56,6 +58,10 @@ struct RecordingMetadata: Codable, Equatable {
         if let lensLabel = lensLabel {
             parts.append(lensLabel)
         }
+        // Show aspect ratio if not default 16:9
+        if let ratio = aspectRatio, ratio != "16:9" {
+            parts.append(ratio)
+        }
         parts.append(presetName)
         parts.append(evText)
         if maxFOV == true {
@@ -80,6 +86,11 @@ struct RecordingMetadata: Codable, Equatable {
         // Add Max FOV mode if enabled
         if maxFOV == true {
             lines.append(("Max FOV", "On"))
+        }
+
+        // Add aspect ratio if available
+        if let ratio = aspectRatio {
+            lines.append(("Aspect Ratio", ratio))
         }
 
         lines.append(contentsOf: [

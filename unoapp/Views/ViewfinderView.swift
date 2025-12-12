@@ -37,10 +37,15 @@ struct ViewfinderView: View {
         NavigationStack {
             ZStack {
                 // Full-screen camera preview
-                // Tap to dismiss manual controls panel and metering grid
+                // Triple-tap toggles debug overlay, single-tap dismisses panels
                 CameraPreviewView(session: viewModel.cameraManager.captureSession)
                     .ignoresSafeArea()
-                    .onTapGesture {
+                    .onTapGesture(count: 3) {
+                        // Triple-tap toggles debug overlay
+                        viewModel.toggleDebugOverlay()
+                    }
+                    .onTapGesture(count: 1) {
+                        // Single-tap dismisses panels (existing behavior)
                         viewModel.dismissManualControls()
                         if viewModel.showMeteringGrid {
                             viewModel.toggleMeteringGrid()
@@ -61,13 +66,17 @@ struct ViewfinderView: View {
 
                 // Main UI overlay
                 VStack(spacing: 0) {
-                    // Preset bar at top (always visible) with Max FOV toggle
+                    // Preset bar at top (always visible) with aspect ratio and Max FOV toggles
                     PresetBar(
                         selectedPreset: $viewModel.selectedPreset,
+                        aspectRatio: viewModel.aspectRatio,
                         maxFOVEnabled: viewModel.maxFOVEnabled,
                         isRecording: viewModel.isRecording,
                         onPresetSelected: { preset in
                             viewModel.selectPreset(preset)
+                        },
+                        onAspectRatioToggle: {
+                            viewModel.toggleAspectRatio()
                         },
                         onMaxFOVToggle: {
                             viewModel.toggleMaxFOV()
@@ -127,6 +136,30 @@ struct ViewfinderView: View {
                     ErrorBanner(message: error)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
+
+                // Debug overlay (toggle with triple-tap)
+                // Portrait: right side, Landscape: left side (to avoid record button)
+                if viewModel.showDebugOverlay, let debugInfo = viewModel.debugInfo {
+                    VStack {
+                        HStack {
+                            if isLandscape {
+                                // Landscape: left side to avoid record button
+                                DebugOverlayView(info: debugInfo)
+                                    .padding(.top, 60)
+                                    .padding(.leading, 16)
+                                Spacer()
+                            } else {
+                                // Portrait: right side
+                                Spacer()
+                                DebugOverlayView(info: debugInfo)
+                                    .padding(.top, 100)
+                                    .padding(.trailing, 16)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .transition(.opacity.combined(with: .move(edge: isLandscape ? .leading : .trailing)))
+                }
             }
             // Handle volume buttons / Bluetooth remote / Camera Control for recording
             .onCameraCaptureEvent { event in
@@ -137,6 +170,7 @@ struct ViewfinderView: View {
             .animation(.easeInOut(duration: 0.3), value: viewModel.isRecording)
             .animation(.easeInOut(duration: 0.3), value: viewModel.showRecordingSaved)
             .animation(.easeInOut(duration: 0.3), value: viewModel.errorMessage)
+            .animation(.easeInOut(duration: 0.2), value: viewModel.showDebugOverlay)
             .animation(.easeInOut(duration: 0.2), value: isLandscape)
             .navigationDestination(isPresented: $showRecordingsList) {
                 RecordingsListView()

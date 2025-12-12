@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// Horizontal bar of lighting preset buttons with Max FOV toggle
+/// Horizontal bar of lighting preset buttons with aspect ratio and Max FOV toggles
 struct PresetBar: View {
     @Binding var selectedPreset: CameraPreset
+    let aspectRatio: AspectRatio
     let maxFOVEnabled: Bool
     let isRecording: Bool
     let onPresetSelected: (CameraPreset) -> Void
+    let onAspectRatioToggle: () -> Void
     let onMaxFOVToggle: () -> Void
 
     var body: some View {
@@ -22,11 +24,18 @@ struct PresetBar: View {
                 )
             }
 
-            // Divider between presets and Max FOV
+            // Divider between presets and toggles
             Rectangle()
                 .fill(Color.white.opacity(0.3))
                 .frame(width: 1, height: 28)
                 .padding(.horizontal, 2)
+
+            // Aspect ratio toggle (16:9 / 4:3)
+            AspectRatioButton(
+                aspectRatio: aspectRatio,
+                isDisabled: isRecording,
+                action: onAspectRatioToggle
+            )
 
             // Max FOV toggle
             MaxFOVButton(
@@ -77,6 +86,45 @@ struct PresetButton: View {
     }
 }
 
+/// Aspect ratio toggle button (16:9 / 4:3)
+/// 4:3 captures more of the circular fisheye projection
+struct AspectRatioButton: View {
+    let aspectRatio: AspectRatio
+    let isDisabled: Bool
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: aspectRatio == .fourByThree ? "rectangle.portrait" : "rectangle")
+                    .font(.system(size: 16))
+                Text(aspectRatio.label)
+                    .font(.system(size: 9))
+                    .fontWeight(.medium)
+            }
+            .frame(minWidth: 40)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 4)
+            .background(aspectRatio == .fourByThree ? Color.blue.opacity(0.6) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .scaleEffect(isPressed ? 0.92 : 1.0)
+        }
+        .foregroundStyle(isDisabled ? .white.opacity(0.4) : (aspectRatio == .fourByThree ? .white : .white.opacity(0.7)))
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if !isDisabled { isPressed = true } }
+                .onEnded { _ in isPressed = false }
+        )
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: aspectRatio)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: aspectRatio)
+    }
+}
+
 /// Max FOV mode toggle button
 /// When enabled, disables distortion correction for external fisheye lenses
 struct MaxFOVButton: View {
@@ -122,9 +170,11 @@ struct MaxFOVButton: View {
         VStack {
             PresetBar(
                 selectedPreset: .constant(.sunny),
+                aspectRatio: .sixteenByNine,
                 maxFOVEnabled: false,
                 isRecording: false,
                 onPresetSelected: { _ in },
+                onAspectRatioToggle: {},
                 onMaxFOVToggle: {}
             )
             Spacer()
@@ -132,15 +182,17 @@ struct MaxFOVButton: View {
     }
 }
 
-#Preview("Max FOV Enabled") {
+#Preview("4:3 + Max FOV Enabled") {
     ZStack {
         Color.black.ignoresSafeArea()
         VStack {
             PresetBar(
                 selectedPreset: .constant(.sunny),
+                aspectRatio: .fourByThree,
                 maxFOVEnabled: true,
                 isRecording: false,
                 onPresetSelected: { _ in },
+                onAspectRatioToggle: {},
                 onMaxFOVToggle: {}
             )
             Spacer()
