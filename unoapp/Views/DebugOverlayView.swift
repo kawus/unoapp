@@ -55,6 +55,18 @@ struct DebugOverlayView: View {
             DebugRow(label: "Max FOV",
                     value: info.maxFOVEnabled ? "ON" : "OFF",
                     highlight: info.maxFOVEnabled)
+
+            Divider().background(.white.opacity(0.3))
+
+            // Audio Status
+            DebugRow(label: "Audio",
+                    value: info.audioEnabled ? "ON" : "OFF",
+                    highlight: info.audioEnabled)
+            if let audioInput = info.audioInputName {
+                // Shorten "Built-In Microphone" to "Built-In" for space
+                DebugRow(label: "Mic",
+                        value: audioInput.replacingOccurrences(of: " Microphone", with: ""))
+            }
         }
         .font(.system(size: 11, design: .monospaced))
         .foregroundStyle(.white.opacity(0.9))
@@ -115,7 +127,9 @@ struct DebugRow: View {
                     sessionPreset: "inputPriority",
                     lens: "Wide (1x)",
                     videoZoomFactor: 1.0,
-                    maxFOVEnabled: true
+                    maxFOVEnabled: true,
+                    audioEnabled: true,
+                    audioInputName: "Built-In Microphone"
                 ))
                 .padding()
             }

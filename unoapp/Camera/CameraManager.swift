@@ -37,7 +37,7 @@ final class CameraManager: NSObject, ObservableObject {
     // MARK: - Recording Storage
 
     private var currentRecordingURL: URL?
-    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens, maxFOV: Bool, aspectRatio: AspectRatio)?
+    private var currentRecordingMetadata: (preset: CameraPreset, settings: CameraSettings, lens: CameraLens, maxFOV: Bool, aspectRatio: AspectRatio, audioEnabled: Bool, audioInputName: String?)?
     var onRecordingFinished: ((URL) -> Void)?
 
     /// Currently active camera lens
@@ -55,11 +55,61 @@ final class CameraManager: NSObject, ObservableObject {
         super.init()
     }
 
+    // MARK: - Audio Setup
+
+    /// Configure audio session for video recording with directional noise reduction
+    /// Uses .videoRecording mode which enables beam-forming on supported devices
+    /// This helps reduce wind noise by focusing on sounds from the camera direction
+    private func configureAudioSession() {
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+
+            // Category: playAndRecord allows simultaneous playback and recording
+            // Mode: videoRecording enables beam-forming for directional noise reduction
+            // Options: allowBluetooth enables external Bluetooth mics
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .videoRecording,
+                options: [.allowBluetooth, .allowBluetoothA2DP]
+            )
+
+            try audioSession.setActive(true)
+
+            print("[Audio] Session configured: \(audioSession.currentRoute.inputs.first?.portName ?? "unknown")")
+        } catch {
+            print("[Audio] Session config failed: \(error.localizedDescription)")
+            // Non-fatal: video recording still works without audio
+        }
+    }
+
+    /// Get current audio input information for metadata and debug overlay
+    /// Returns the actual input being used (handles external mics correctly)
+    func getAudioInputInfo() -> (enabled: Bool, name: String?) {
+        // Check if we have an audio input in the session
+        let hasAudioInput = captureSession.inputs.contains { input in
+            guard let deviceInput = input as? AVCaptureDeviceInput else { return false }
+            return deviceInput.device.hasMediaType(.audio)
+        }
+
+        if hasAudioInput {
+            // Get current audio route name from AVAudioSession
+            // This reflects the actual input (handles external mics correctly)
+            let audioSession = AVAudioSession.sharedInstance()
+            let inputName = audioSession.currentRoute.inputs.first?.portName
+            return (true, inputName)
+        }
+
+        return (false, nil)
+    }
+
     // MARK: - Setup
 
     /// Configure the capture session with ultrawide camera and 4K 30fps
     /// Call this after camera permission is granted
     func setupSession() {
+        // Configure audio session first (for video recording with beam-forming noise reduction)
+        configureAudioSession()
+
         captureSession.beginConfiguration()
 
         // Set session preset for high quality video
@@ -100,7 +150,27 @@ final class CameraManager: NSObject, ObservableObject {
             return
         }
 
-        // Step 4: Add movie file output for recording
+        // Step 4: Add audio input for recording
+        // Uses default audio device which automatically routes to external mics
+        // iOS handles this intelligently - "last connected wins" for external mics
+        if let audioDevice = AVCaptureDevice.default(for: .audio) {
+            do {
+                let audioInput = try AVCaptureDeviceInput(device: audioDevice)
+                if captureSession.canAddInput(audioInput) {
+                    captureSession.addInput(audioInput)
+                    print("[Audio] Input added: \(audioDevice.localizedName)")
+                } else {
+                    print("[Audio] Cannot add input to session")
+                }
+            } catch {
+                print("[Audio] Input failed: \(error.localizedDescription)")
+                // Non-fatal: continue with video-only recording
+            }
+        } else {
+            print("[Audio] No audio device available")
+        }
+
+        // Step 5: Add movie file output for recording
         let movieOutput = AVCaptureMovieFileOutput()
         if captureSession.canAddOutput(movieOutput) {
             captureSession.addOutput(movieOutput)
@@ -658,6 +728,9 @@ final class CameraManager: NSObject, ObservableObject {
         // Calculate actual frame rate
         let frameRate = Float(1.0 / CMTimeGetSeconds(device.activeVideoMinFrameDuration))
 
+        // Get audio info for debug display
+        let audioInfo = getAudioInputInfo()
+
         let info = CameraDebugInfo(
             resolution: "\(dims.width)x\(dims.height)",
             videoFieldOfView: format.videoFieldOfView,
@@ -670,7 +743,9 @@ final class CameraManager: NSObject, ObservableObject {
             sessionPreset: describeSessionPreset(captureSession.sessionPreset),
             lens: currentLens == .wide ? "Wide (1x)" : "Ultra Wide (0.5x)",
             videoZoomFactor: Float(device.videoZoomFactor),
-            maxFOVEnabled: maxFOVEnabled
+            maxFOVEnabled: maxFOVEnabled,
+            audioEnabled: audioInfo.enabled,
+            audioInputName: audioInfo.name
         )
 
         DispatchQueue.main.async {
@@ -755,7 +830,8 @@ final class CameraManager: NSObject, ObservableObject {
         }
 
         // Store metadata to save when recording completes
-        currentRecordingMetadata = (preset, settings, currentLens, maxFOVEnabled, currentAspectRatio)
+        let audioInfo = getAudioInputInfo()
+        currentRecordingMetadata = (preset, settings, currentLens, maxFOVEnabled, currentAspectRatio, audioInfo.enabled, audioInfo.name)
 
         // Create unique filename with timestamp
         let formatter = DateFormatter()
@@ -829,8 +905,8 @@ extension CameraManager: AVCaptureFileOutputRecordingDelegate {
         }
 
         // Save metadata sidecar alongside the video
-        if let (preset, settings, lens, maxFOV, aspectRatio) = currentRecordingMetadata {
-            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens, maxFOV: maxFOV, aspectRatio: aspectRatio)
+        if let (preset, settings, lens, maxFOV, aspectRatio, audioEnabled, audioInputName) = currentRecordingMetadata {
+            let metadata = RecordingMetadata(preset: preset, settings: settings, lens: lens, maxFOV: maxFOV, aspectRatio: aspectRatio, audioEnabled: audioEnabled, audioInputName: audioInputName)
             saveMetadata(metadata, for: outputFileURL)
         }
         currentRecordingMetadata = nil

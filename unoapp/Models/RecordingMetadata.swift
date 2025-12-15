@@ -19,10 +19,12 @@ struct RecordingMetadata: Codable, Equatable {
     let lens: String?               // "ultraWide" or "wide" (optional for backward compatibility)
     let maxFOV: Bool?               // Whether Max FOV mode was enabled (optional for backward compatibility)
     let aspectRatio: String?        // "16:9" or "4:3" (optional for backward compatibility)
+    let audioEnabled: Bool?         // Whether audio was recorded (optional for backward compatibility)
+    let audioInputName: String?     // "Built-In Microphone", "USB Audio", etc.
 
     // MARK: - Convenience Initializer
 
-    init(preset: CameraPreset, settings: CameraSettings, lens: CameraLens? = nil, maxFOV: Bool = false, aspectRatio: AspectRatio = .sixteenByNine, recordedAt: Date = Date()) {
+    init(preset: CameraPreset, settings: CameraSettings, lens: CameraLens? = nil, maxFOV: Bool = false, aspectRatio: AspectRatio = .sixteenByNine, audioEnabled: Bool = false, audioInputName: String? = nil, recordedAt: Date = Date()) {
         self.preset = preset.rawValue
         self.exposureBias = settings.exposureBias
         self.meteringZone = settings.meteringZone.stringValue
@@ -32,6 +34,8 @@ struct RecordingMetadata: Codable, Equatable {
         self.lens = lens?.rawValue
         self.maxFOV = maxFOV
         self.aspectRatio = aspectRatio.rawValue
+        self.audioEnabled = audioEnabled
+        self.audioInputName = audioInputName
     }
 
     // MARK: - Display Helpers
@@ -67,6 +71,9 @@ struct RecordingMetadata: Codable, Equatable {
         if maxFOV == true {
             parts.append("MaxFOV")
         }
+        if audioEnabled == true {
+            parts.append("Audio")
+        }
         return parts.joined(separator: " • ")
     }
 
@@ -100,6 +107,12 @@ struct RecordingMetadata: Codable, Equatable {
             ("ISO", "\(Int(iso))"),
             ("White Balance", "\(whiteBalance)K")
         ])
+
+        // Add audio info if available
+        if let audioEnabled = audioEnabled {
+            let audioValue = audioEnabled ? (audioInputName ?? "On") : "Off"
+            lines.append(("Audio", audioValue))
+        }
 
         return lines
     }

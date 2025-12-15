@@ -28,4 +28,8 @@ struct CameraDebugInfo: Equatable {
 
     // Max FOV Mode Status
     let maxFOVEnabled: Bool
+
+    // Audio Information
+    let audioEnabled: Bool           // Whether audio input is available
+    let audioInputName: String?      // "Built-In Microphone", "USB Audio", etc.
 }

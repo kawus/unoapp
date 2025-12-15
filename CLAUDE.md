@@ -6,7 +6,7 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 7 Complete (Debug Overlay + Aspect Ratio Toggle)
+**Status**: Iteration 8 Complete (Audio Recording Support)
 
 ---
 
@@ -127,6 +127,18 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 - Disables: GDC, Center Stage (auto-framing), ensures zoom = 1.0
 - All cropping features disabled when Max FOV is enabled
 
+**Audio Recording (Iteration 8)**
+- Recordings now include audio (previously video-only)
+- Uses `.videoRecording` audio session mode for beam-forming noise reduction
+- Beam-forming uses multiple microphones to focus on sounds from camera direction
+- Helps reduce wind noise when recording outdoors
+- External USB-C/Lightning microphones automatically detected and used ("last connected wins")
+- Bluetooth microphones supported via `.allowBluetooth` option
+- Falls back to built-in microphone when external mic unplugged
+- Audio status shown in debug overlay (triple-tap to view)
+- Audio info saved to recording metadata (enabled status + microphone name)
+- Microphone permission requested after camera permission (optional - video works without it)
+
 ### File Structure
 
 ```
@@ -163,19 +175,21 @@ unoapp/
     └── PermissionView.swift     # Permission denied screen
 ```
 
-Note: Camera/photo permissions are in project build settings (INFOPLIST_KEY_*), not a separate Info.plist.
+Note: Camera/photo/microphone permissions are in project build settings (INFOPLIST_KEY_*), not a separate Info.plist.
 
 ---
 
 ## Next Steps
 
-### Iteration 8: Field Testing & Refinement
+### Iteration 9: Field Testing & Refinement
 
 - Field testing with T-Series/Moment fisheye lens on 1x Wide camera
 - Compare: Max FOV ON + 4:3 vs Max FOV OFF + 16:9
 - Use debug overlay to verify GDC off, zoom 1.0, correct format selected
 - Measure actual FOV achieved (target: 170-200° with Max FOV + 4:3)
 - Tune preset values based on real conditions (cloudy UK days, stadium floodlights)
+- Test audio recording with external USB-C microphone
+- Test beam-forming noise reduction in windy conditions
 - Add full ISO/WB control if exposure bias alone isn't sufficient
 - Edge case handling (interruptions, storage full, low battery)
 - Recording file naming/renaming
@@ -268,6 +282,27 @@ device.exposureMode = .continuousAutoExposure
 - Row/Col 1: 0.51 (center, avoiding 0.5)
 - Row/Col 2: 0.833 (5/6 from edge)
 
+### Audio Recording Technical Notes
+
+Uses AVAudioSession with `.videoRecording` mode for directional noise reduction:
+
+```swift
+let audioSession = AVAudioSession.sharedInstance()
+try audioSession.setCategory(
+    .playAndRecord,
+    mode: .videoRecording,
+    options: [.allowBluetooth, .allowBluetoothA2DP]
+)
+```
+
+**Beam-forming**: The `.videoRecording` mode enables beam-forming on supported iPhones. This uses the front and back microphones together to provide directional noise reduction, focusing on sounds from the camera direction. Helps reduce wind noise when recording outdoors.
+
+**External microphone handling**: iOS automatically routes to external microphones when connected. No special code needed - the system uses a "last connected wins" approach. When an external USB-C/Lightning microphone is plugged in, it automatically becomes the active input.
+
+**System mic modes**: iOS 15+ provides user-controlled mic modes in Control Center (Voice Isolation, Wide Spectrum, Standard). For football atmosphere recording, "Wide Spectrum" or "Standard" captures the most environmental audio. The app cannot programmatically set these modes - they are user-controlled per-app.
+
+**Permission flow**: Microphone permission is requested after camera permission. Microphone is optional - video recording works without audio if permission is denied.
+
 ### Recordings Location
 
 Videos are saved to the app's Documents directory:
@@ -286,7 +321,9 @@ Example metadata file:
   "whiteBalance": 4000,
   "recordedAt": "2025-12-08T14:30:00Z",
   "lens": "ultraWide",
-  "maxFOV": true
+  "maxFOV": true,
+  "audioEnabled": true,
+  "audioInputName": "Built-In Microphone"
 }
 ```
 
@@ -388,6 +425,20 @@ Example metadata file:
 - [ ] Without fisheye: more distortion visible at edges (expected)
 - [ ] Stabilization stays OFF in both modes
 
+**Audio Recording (Iteration 8)**
+- [ ] First launch prompts for microphone permission (after camera)
+- [ ] Recording includes audio (play back and listen)
+- [ ] Audio syncs with video (no lip-sync issues)
+- [ ] Video-only recording still works if mic permission denied
+- [ ] Debug overlay shows "Audio: ON" when audio input available
+- [ ] Debug overlay shows microphone name (e.g., "Built-In")
+- [ ] Plug in USB-C microphone - audio switches automatically
+- [ ] Unplug external mic - falls back to built-in mic
+- [ ] Recording metadata shows audio info ("Audio" in summary)
+- [ ] Playback view shows audio input name in settings
+- [ ] Legacy recordings without audio metadata display correctly
+- [ ] Beam-forming mode reduces wind noise vs standard
+
 ---
 
 ## References
@@ -398,3 +449,4 @@ Example metadata file:
 - [Exposure Point of Interest](https://developer.apple.com/documentation/avfoundation/avcapturedevice/exposurepointofinterest)
 - [Geometric Distortion Correction](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isgeometricdistortioncorrectionenabled)
 - [Video Field of View](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videofieldofview)
+- [AVAudioSession VideoRecording Mode](https://developer.apple.com/documentation/avfoundation/avaudiosession/mode/videorecording)

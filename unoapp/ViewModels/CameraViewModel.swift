@@ -121,14 +121,23 @@ final class CameraViewModel: ObservableObject {
 
     // MARK: - Permission Handling
 
-    /// Request camera permission from the user
+    /// Request camera and microphone permissions
+    /// Camera is required, microphone is optional (video works without audio)
     func requestPermission() {
         Task {
-            let granted = await AVCaptureDevice.requestAccess(for: .video)
-            permissionStatus = granted ? .authorized : .denied
+            // Request camera permission first (required for app to function)
+            let cameraGranted = await AVCaptureDevice.requestAccess(for: .video)
 
-            if granted {
+            if cameraGranted {
+                // Request microphone permission (optional - video works without it)
+                // This will show the system permission dialog for microphone
+                let micGranted = await AVCaptureDevice.requestAccess(for: .audio)
+                print("[Permission] Microphone: \(micGranted ? "granted" : "denied")")
+
+                permissionStatus = .authorized
                 setupCamera()
+            } else {
+                permissionStatus = .denied
             }
         }
     }
