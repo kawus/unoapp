@@ -6,7 +6,49 @@ Proof-of-concept iOS app to validate whether a single iPhone + Moment fisheye le
 
 **Target**: iOS 26 with Liquid Glass design
 **Framework**: SwiftUI + AVFoundation
-**Status**: Iteration 8 Complete (Audio Recording Support)
+**Status**: Iteration 8 Complete (Audio Recording Support) + Field Testing Insights
+
+---
+
+## Field Testing Results (December 2025)
+
+### FOV Achieved
+- **T-Series Moment Fisheye + iPhone 17**: ~140-160° horizontal
+- **Optimal settings**: 16:9 + Max FOV ON (0.5x ultrawide lens)
+- **Debug overlay FOV**: ~70.7° (this is the iPhone sensor's native FOV, not combined with external lens)
+
+### Key Learnings
+
+**1. Marketing vs Reality - Fisheye Lens FOV**
+
+| Lens | Marketing Claim | Actual Spec | Horizontal FOV (16:9) |
+|------|-----------------|-------------|----------------------|
+| Moment T-Series | "200°" | 170° diagonal | ~145-155° |
+| Sandmarc | "210°" | 210° diagonal | ~175-185° |
+
+The "200°" claims are diagonal measurements. Horizontal FOV is always lower due to rectangular sensor crop.
+
+**2. 4:3 Mode Shows LOWER FOV on iPhone 17**
+
+Unexpected finding: 4:3 mode shows lower FOV in debug overlay than 16:9. This appears to be a hardware limitation where iPhone 17's 4:3 formats use a sensor crop that reduces native FOV. **Recommendation: Use 16:9 for maximum FOV.**
+
+**3. Debug Overlay FOV Value**
+
+The FOV shown in debug overlay (~70.7°) is the iPhone sensor's native horizontal FOV, not the combined FOV with an external fisheye lens. The external lens optically expands this, but the software only reports what the sensor sees.
+
+**4. Software Optimizations Verified**
+
+All software optimizations are correctly implemented:
+- ✅ GDC (Geometric Distortion Correction) disabled
+- ✅ Video stabilization OFF
+- ✅ Digital zoom at 1.0
+- ✅ Center Stage disabled
+- ✅ Session preset: `.inputPriority`
+- ✅ Format selection prioritizes highest FOV
+
+### Next Hardware Test
+
+**Sandmarc 210° fisheye lens ordered** - Expected to achieve ~175-185° horizontal FOV, which would be sufficient to capture most of a football pitch from a good vantage point.
 
 ---
 
@@ -181,18 +223,34 @@ Note: Camera/photo/microphone permissions are in project build settings (INFOPLI
 
 ## Next Steps
 
-### Iteration 9: Field Testing & Refinement
+### Iteration 9: Sandmarc Lens Testing
 
-- Field testing with T-Series/Moment fisheye lens on 1x Wide camera
-- Compare: Max FOV ON + 4:3 vs Max FOV OFF + 16:9
-- Use debug overlay to verify GDC off, zoom 1.0, correct format selected
-- Measure actual FOV achieved (target: 170-200° with Max FOV + 4:3)
-- Tune preset values based on real conditions (cloudy UK days, stadium floodlights)
-- Test audio recording with external USB-C microphone
+**Primary goal:** Test Sandmarc 210° fisheye lens to see if ~175-185° horizontal FOV is achievable.
+
+**Testing checklist:**
+- [ ] Test with 16:9 + Max FOV ON (optimal settings based on field testing)
+- [ ] Verify debug overlay shows: GDC OFF, Stabilization off, Zoom 1.00x, Max FOV ON
+- [ ] Compare footage side-by-side with T-Series Moment lens
+- [ ] Measure actual horizontal FOV achieved
+- [ ] Document any edge sharpness or vignetting differences
+
+**If Sandmarc achieves ~170°+ horizontal:**
+- PoC validated - single iPhone can capture most of a football pitch
+- Proceed with lighting preset tuning for real conditions
+- Test audio with external USB-C microphone
+
+**If still insufficient:**
+- Consider PoC conclusion: "Single iPhone cannot capture full 180° - need dedicated hardware"
+- Evaluate multi-camera stitching (AVCaptureMultiCamSession) - complex but possible
+- Or consider dedicated 180° action cameras / VR cameras
+
+### Future Improvements (if PoC validates)
+
+- Add format logging to debug 4:3 vs 16:9 FOV difference
+- Tune preset values for real conditions (cloudy UK days, stadium floodlights)
 - Test beam-forming noise reduction in windy conditions
-- Add full ISO/WB control if exposure bias alone isn't sufficient
-- Edge case handling (interruptions, storage full, low battery)
-- Recording file naming/renaming
+- Edge case handling (storage full, low battery warnings)
+- Recording file naming/organization
 
 ---
 
@@ -254,15 +312,39 @@ let bestFormat = device.formats.max {
 device.activeFormat = bestFormat
 ```
 
-**Expected results:**
-- Standard mode: ~170° with T-Series fisheye
-- Max FOV mode: ~185-195° (hardware limit)
-- Perfect 200° not achievable due to unavoidable 16:9 crop + sensor readout limitations
+**Actual results (Field Testing December 2025):**
+- T-Series Moment (170° diagonal): ~140-160° horizontal achieved
+- Sandmarc (210° diagonal): ~175-185° horizontal expected (testing pending)
+- Perfect 180° horizontal requires lens rated 210°+ diagonal
+
+**Key insight:** Lens marketing uses **diagonal** FOV, but horizontal FOV matters for capturing a pitch. Conversion: diagonal FOV × 0.85 ≈ horizontal FOV on 16:9 sensor.
 
 **Trade-offs:**
 - May result in lower resolution (non-4K)
 - Raw fisheye distortion visible (no correction applied)
 - Ideal for external fisheye lenses; may look unusual without one
+- 4:3 mode may show LOWER FOV on some devices (iPhone 17) - use 16:9 for max FOV
+
+### Multi-Camera Stitching (Research Notes)
+
+If single-lens FOV is insufficient, iOS supports simultaneous capture from multiple cameras:
+
+**AVCaptureMultiCamSession** (iOS 13+):
+- Capture from ultrawide (0.5x) + wide (1x) simultaneously
+- Could theoretically stitch for wider FOV
+- Apple sample: [AVMultiCamPiP](https://developer.apple.com/documentation/avfoundation/capture_setup/avmulticampip_capturing_from_multiple_cameras)
+
+**Existing apps:**
+- DoubleTake by FiLMiC Pro - records from 2 cameras
+- iPhone 17 native "Dual Capture" - front + back cameras
+
+**Challenges:**
+- Real-time video stitching is computationally expensive
+- Parallax issues (cameras are physically offset ~8mm)
+- Often limited to 1080p (4K too demanding for dual-camera)
+- Complex blend zone management at seams
+
+**Verdict:** Not recommended for PoC. Sandmarc 210° lens is simpler path to ~180° FOV.
 
 ### Metering Zone Technical Notes
 
@@ -443,6 +525,7 @@ Example metadata file:
 
 ## References
 
+### Apple Documentation
 - [iOS 26 Liquid Glass HIG](https://developer.apple.com/design/human-interface-guidelines/)
 - [AVCam Sample Project](https://developer.apple.com/documentation/avfoundation/avcam-building-a-camera-app)
 - [Video Stabilization API](https://developer.apple.com/documentation/avfoundation/avcaptureconnection/preferredvideostabilizationmode)
@@ -450,3 +533,10 @@ Example metadata file:
 - [Geometric Distortion Correction](https://developer.apple.com/documentation/avfoundation/avcapturedevice/isgeometricdistortioncorrectionenabled)
 - [Video Field of View](https://developer.apple.com/documentation/avfoundation/avcapturedevice/format/videofieldofview)
 - [AVAudioSession VideoRecording Mode](https://developer.apple.com/documentation/avfoundation/avaudiosession/mode/videorecording)
+- [AVCaptureMultiCamSession](https://developer.apple.com/documentation/avfoundation/avcapturemulticamsession)
+- [WWDC19 - Multi-Camera Capture](https://developer.apple.com/videos/play/wwdc2019/249/)
+
+### Fisheye Lens Research
+- [Moment 14mm Fisheye - CineD Review](https://www.cined.com/moment-fisheye-14mm-sharper-170-fov-lens-for-phones-introduced/) - Technical specs: 170° diagonal FOV
+- [Sandmarc iPhone Lens Review - Tom's Guide](https://www.tomsguide.com/cameras-photography/sandmarc-iphone-lens-review)
+- [Best iPhone Fisheye Lens Guide 2025](https://procamerareviews.com/iphone-fisheye-lens-guide/)
